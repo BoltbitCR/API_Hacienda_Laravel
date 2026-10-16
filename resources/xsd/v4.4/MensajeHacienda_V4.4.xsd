@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2024 rel. 2 sp1 (x64) (https://www.altova.com) by Ministerio de Hacienda Costa Rica (PC Central) -->
 <xs:schema xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" targetNamespace="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda" elementFormDefault="qualified" attributeFormDefault="unqualified" version="4.4" vc:minVersion="1.1">
 	<xs:import namespace="http://www.w3.org/2000/09/xmldsig#" schemaLocation="../../xmldsig-core-schema.xsd"/>
 	<xs:element name="MensajeHacienda">
@@ -13,7 +14,7 @@
 					</xs:annotation>
 					<xs:simpleType>
 						<xs:restriction base="xs:string">
-							<xs:pattern value="\d{50,50}"/>
+							<xs:pattern value="[a-zA-Z0-9]{50,50}"/>
 						</xs:restriction>
 					</xs:simpleType>
 				</xs:element>
@@ -68,12 +69,11 @@
 				</xs:element>
 				<xs:element name="NumeroCedulaEmisor">
 					<xs:annotation>
-						<xs:documentation>Número de cédula fisica/jurídica/NITE/DIMEX del emisor</xs:documentation>
+						<xs:documentation>Número de cédula fisica/jurídica/NITE/DIMEX/Extranjero No Domiciliado/No Contribuyente del emisor</xs:documentation>
 					</xs:annotation>
 					<xs:simpleType>
 						<xs:restriction base="xs:string">
-							<xs:maxLength value="12"/>
-							<xs:pattern value="\d{9,12}"/>
+							<xs:maxLength value="20"/>
 						</xs:restriction>
 					</xs:simpleType>
 				</xs:element>
@@ -129,12 +129,11 @@
 				</xs:element>
 				<xs:element name="NumeroCedulaReceptor" nillable="true" minOccurs="0">
 					<xs:annotation>
-						<xs:documentation>Número de cédula fisica/jurídica/NITE/DIMEX del receptor</xs:documentation>
+						<xs:documentation>Número de cédula fisica/jurídica/NITE/DIMEX/Extranjero No Domiciliado/No Contribuyente del receptor</xs:documentation>
 					</xs:annotation>
 					<xs:simpleType>
 						<xs:restriction base="xs:string">
 							<xs:maxLength value="20"/>
-							<xs:pattern value="\d{9,20}"/>
 						</xs:restriction>
 					</xs:simpleType>
 				</xs:element>
