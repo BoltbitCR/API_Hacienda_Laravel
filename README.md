@@ -10,101 +10,29 @@ Soporte actual para V4.4
 > El código original en `/legacy` se mantiene **de forma permanente** como
 > referencia histórica y golden master.
 
-## API REST v1
+## Documentación
 
-API moderna bajo `/api/v1`, con **tokens Sanctum** de dos tipos (`master` =
-dueño de empresa, `company` = sub-usuario):
+Toda la documentación está en la **[wiki](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki)**:
 
-- `POST /api/v1/auth/login` y `/api/v1/auth/company/login` emiten el token.
-- **Emisión de comprobantes** (recurso principal): `POST /api/v1/documents`
-  corre el flujo completo clave→XML v4.4→firma XAdES→token→envío a Hacienda→
-  persistencia, reutilizando los mismos servicios que la capa legacy.
-  `GET /api/v1/documents/{id}/status` consulta el estado en Hacienda.
-- CRUD de empresa, credenciales ATV (cifradas), sucursales, terminales,
-  receptores e inventario; catálogos geográficos públicos.
+- [Instalación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Instalación) y [configuración](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Configuración)
+- [Autenticación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Autenticación) y [emisión de comprobantes](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Emisión-de-comprobantes)
+- [Referencia de parámetros](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Referencia-de-parámetros) e [impuestos y tarifas](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Impuestos-y-tarifas)
+- [API legacy (`/api.php`)](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/API-legacy) para clientes del API original
+- [Solución de problemas](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Solución-de-problemas) y [limitaciones conocidas](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Limitaciones-conocidas)
+- [Arquitectura](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Arquitectura), [pruebas](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Pruebas) y [cómo contribuir](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Contribuir)
 
-**Swagger/OpenAPI** autogenerado en `/docs/api` (spec en `/docs/api.json`),
-**deshabilitable en producción** con `SCRAMBLE_ENABLED=false`. CORS del REST
-configurable por `CORS_ALLOWED_ORIGINS`; rate limiting en login y emisión.
+Cada instalación sirve además su especificación OpenAPI en `/docs/api`.
 
-## Endpoints importantes
-
-| Endpoint | Método | Descripción |
-| --- | --- | --- |
-| `/docs/api` | GET | Documentación Swagger/OpenAPI (spec en `/docs/api.json`) |
-| `/api.php?w=<modulo>&r=<accion>` | GET/POST | Capa de compatibilidad con el API legacy |
-| `/api/v1/auth/register` | POST | Registro de cuenta master |
-| `/api/v1/auth/login` | POST | Login de cuenta master (emite token Sanctum) |
-| `/api/v1/auth/company/login` | POST | Login de sub-usuario de empresa |
-| `/api/v1/auth/me` | GET | Información del principal autenticado |
-| `/api/v1/auth/logout` | POST | Revoca el token actual |
-| `/api/v1/company` | GET/PUT | Datos de la empresa activa |
-| `/api/v1/company/credentials` | GET/PUT | Credenciales ATV (cifradas) |
-| `/api/v1/company/certificate` | POST | Subida del certificado `.p12` |
-| `/api/v1/branches` · `/api/v1/terminals` | GET/POST | Sucursales y terminales |
-| `/api/v1/receivers` | CRUD | Receptores |
-| `/api/v1/products` | CRUD | Inventario |
-| `/api/v1/documents` | GET/POST | Listado y **emisión de comprobantes** |
-| `/api/v1/documents/{id}` | GET | Detalle del comprobante |
-| `/api/v1/documents/{id}/status` | GET | Estado del comprobante en Hacienda |
-| `/api/v1/geo/provinces/...` | GET | Catálogo geográfico (provincias → cantones → distritos → barrios) |
-| `/api/v1/catalogs/{tax-types\|measure-units\|id-types}` | GET | Catálogos de impuestos, unidades y tipos de identificación |
-
-Las rutas bajo `/api/v1` (salvo auth y catálogos públicos) requieren
-`Authorization: Bearer <token>`. Rate limiting: 10 req/min en auth,
-60 req/min en emisión de documentos.
-
-## Compatibilidad con clientes existentes
-
-Los clientes siguen llamando `POST/GET /api.php?w=<modulo>&r=<accion>` con los
-mismos parámetros y reciben exactamente las mismas respuestas (formato
-`{status, resp}`, códigos HTTP, y peculiaridades históricas). Esto está
-garantizado por una suite de **tests de paridad golden-master**
-(`tests/Parity/`) capturada del API original en ejecución
-(ver `legacy/golden/README.md`).
-
-Puntos de entrada:
-
-- `public/api.php` — capa de compatibilidad legacy (`routes/legacy.php` →
-  `App\Legacy\*`).
-- `public/index.php` — aplicación Laravel estándar (REST v1 en Fase 5).
-
-## Desarrollo
+## Inicio rápido
 
 ```bash
-composer install
-cp .env.example .env && php artisan key:generate
-./vendor/bin/pest              # suite completa (unit + feature + paridad)
-php artisan serve              # el API queda en http://localhost:8000/api.php
+cp .env.example .env
+docker compose up -d
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
 ```
 
-Con Docker: `docker compose up -d` (app en :8000, MariaDB en :3307).
-
-### Tests de paridad contra Hacienda real
-
-Los fixtures que golpean el sandbox del Ministerio corren solo con:
-
-```bash
-HACIENDA_LIVE_TESTS=1 ./vendor/bin/pest tests/Parity
-```
-
-### Regenerar golden masters
-
-El código original vive en `/legacy` y es ejecutable con Docker; ver
-`legacy/golden/README.md`.
-
-## Arquitectura
-
-- `app/Legacy/` — dispatcher de compatibilidad: réplica exacta del contrato
-  del framework casero original (params, respuestas, códigos de error).
-- `app/Services/` — lógica de dominio compartida por la capa legacy y el
-  REST nuevo: `Clave`, `Xml` (generadores v4.4), `Signature` (XAdES-EPES),
-  `Hacienda` (token/recepción/estado), `Qr`, `Xsd`, `Files`.
-- `packages/crlibre/xades-xmlseclibs` — fork de xmlseclibs con XAdES-EPES
-  como paquete composer interno.
-- `config/hacienda.php` — endpoints del Ministerio, política de firma, SSL.
-- `legacy/` — código PHP vanilla original (solo referencia; se elimina al
-  final de la migración).
+Antes de levantarlo, lea [Instalación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Instalación): con Docker la conexión a la base de datos va en el `.env`.
 
 ## Documentación sobre la Factura Electrónica en Costa Rica
 
