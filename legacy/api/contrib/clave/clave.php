@@ -58,8 +58,13 @@ function getClave($tipoDocumento = "", $tipoCedula = "", $cedula = "", $situacio
     $mes = date('m');
     $ano = date('y');
 
-    // Validamos el parametro de cedula
-    if (!ctype_digit($cedula))
+    // Validamos el parametro de cedula. La juridica admite el consecutivo
+    // alfanumerico del Registro Nacional (3101A00001), en mayusculas y sin guiones.
+    $esJuridica = in_array($tipoCedula, array("juridico", "02"), true);
+    if ($esJuridica)
+        $cedula = strtoupper(str_replace(array("-", " "), "", $cedula));
+
+    if (!ctype_digit($cedula) && !($esJuridica && preg_match('/^[0-9]{4}[0-9A-Z]{6}$/', $cedula)))
         return "El parametro cedula no es numeral";
 
     if (!ctype_digit($codigoPais)) {

@@ -320,3 +320,65 @@ test('una línea con tarifa 0 lleva el nodo Tarifa', function () {
 
     $this->assertTrue($valid, "El XML no valida contra el XSD v4.4:\n".$errores);
 });
+
+test('una empresa con cédula jurídica alfanumérica emite una FE válida', function () {
+    (new CatalogSeeder)->run();
+    [$user, $company] = companyWithCredentials();
+    // Como la puede guardar un cliente: con guiones y en minúsculas.
+    $company->update(['cedula' => '3-101-a00001']);
+
+    Http::fake([
+        '*idp*' => Http::response(['access_token' => 'fake-token', 'token_type' => 'bearer'], 200),
+        '*recepcion*' => Http::response('', 202),
+    ]);
+
+    $token = $user->createToken('test', ['master'])->plainTextToken;
+
+    $response = $this->withToken($token)->postJson('/api/v1/documents', [
+        'tipo' => 'FE',
+        'environment' => 'stag',
+        'fecha_emision' => '2026-07-02T16:52:05-06:00',
+        'condicion_venta' => '01',
+        'medios_pago' => [['tipoMedioPago' => '01', 'totalMedioPago' => 1000]],
+        'detalles' => [[
+            'codigoCABYS' => '0111100000100', 'cantidad' => 1, 'unidadMedida' => 'Unid',
+            'detalle' => 'Producto exento', 'precioUnitario' => 1000.00,
+            'montoTotal' => 1000.00, 'subTotal' => 1000.00,
+            'impuestoAsumidoEmisorFabrica' => 0, 'impuestoNeto' => 0.00,
+            'montoTotalLinea' => 1000.00, 'baseImponible' => 1000.00,
+            'impuesto' => [['codigo' => '01', 'codigoTarifa' => '10', 'tarifa' => 0.0, 'monto' => 0.00]],
+        ]],
+        'total_ventas' => 1000.00,
+        'total_ventas_neta' => 1000.00,
+        'total_comprobante' => 1000.00,
+        'params' => [
+            'codigo_actividad_emisor' => '6201.0',
+            'total_merc_exenta' => 1000.00,
+            'total_exento' => 1000.00,
+            'total_impuestos' => 0.00,
+            'totalDesgloseImpuesto' => json_encode([
+                ['Codigo' => '01', 'CodigoTarifaIVA' => '10', 'TotalMontoImpuesto' => 0],
+            ]),
+        ],
+        'receptor_nombre' => 'Cliente ABC',
+        'receptor_tipo_identif' => '01',
+        'receptor_num_identif' => '208830333',
+    ])->assertStatus(201);
+
+    // Posiciones 10-21 de la clave: la cédula con dos ceros (nota 4.1).
+    expect(substr($response->json('clave'), 9, 12))->toBe('003101A00001');
+
+    $xml = base64_decode($response->json('xml'));
+    expect($xml)->toContain('<Numero>3101A00001</Numero>');
+
+    $dom = new DOMDocument;
+    $dom->loadXML($xml);
+    libxml_use_internal_errors(true);
+    $valid = $dom->schemaValidate(base_path('resources/xsd/v4.4/FacturaElectronica_V4.4-noSign.xsd'));
+    $errores = collect(libxml_get_errors())->map(fn ($e) => trim($e->message))->implode("\n");
+    libxml_clear_errors();
+    $this->assertTrue($valid, "El XML no valida contra el XSD v4.4:\n".$errores);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'recepcion')
+        && $request['emisor']['numeroIdentificacion'] === '3101A00001');
+});
