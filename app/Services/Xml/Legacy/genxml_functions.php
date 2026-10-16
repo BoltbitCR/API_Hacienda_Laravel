@@ -654,7 +654,7 @@ function genXMLFe()
                     $xmlString .= '<CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '<Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
 
@@ -1522,7 +1522,7 @@ function genXMLNC()
                     $xmlString .= '<CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '<Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
 
@@ -2400,7 +2400,7 @@ function genXMLND()
                     $xmlString .= '<CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '<Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
 
@@ -3265,7 +3265,7 @@ function genXMLTE()
                     <CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '
                     <Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
@@ -4099,7 +4099,7 @@ function genXMLFec()
                     $xmlString .= '<CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '<Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
 
@@ -4890,7 +4890,7 @@ function genXMLFee()
                     $xmlString .= '<CodigoTarifaIVA>' . $i->codigoTarifa . '</CodigoTarifaIVA>';
                 }
 
-                if (isset($i->tarifa) && _ne74($i->tarifa)) {
+                if (isset($i->tarifa) && $i->tarifa !== '') {
                     $xmlString .= '<Tarifa>' . $i->tarifa . '</Tarifa>';
                 }
 
