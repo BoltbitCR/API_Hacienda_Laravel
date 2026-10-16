@@ -13,6 +13,7 @@ use App\Services\Hacienda\ReceptionClient;
 use App\Services\Hacienda\TokenService;
 use App\Services\Signature\XadesSignerService;
 use App\Services\Xml\Legacy\CurrentParams;
+use App\Services\Xml\Legacy\LegacyReplyKill;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -100,7 +101,12 @@ class DocumentEmissionService
 
         require_once app_path('Services/Xml/Legacy/genxml_functions.php');
         $fn = 'App\\Services\\Xml\\Legacy\\'.self::GENERATORS[$tipo];
-        $generated = CurrentParams::with($params, fn () => $fn());
+        try {
+            $generated = CurrentParams::with($params, fn () => $fn());
+        } catch (LegacyReplyKill $e) {
+            // Error de validación del generador (p. ej. un código de referencia fuera del catálogo).
+            throw new EmissionException($e->getMessage(), previous: $e);
+        }
 
         if (! is_array($generated) || ! isset($generated['xml'])) {
             throw new EmissionException('El generador no produjo XML.');
