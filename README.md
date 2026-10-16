@@ -34,9 +34,8 @@ docker compose exec app php artisan migrate --seed
 
 Antes de levantarlo, lea [Instalación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Instalación): con Docker la conexión a la base de datos va en el `.env`.
 
-## Documentación sobre la Factura Electrónica en Costa Rica
+## CRLibre y Factura Electrónica en Costa Rica
 
-- [Información general del proceso](https://github.com/CRLibre/fe-hacienda-cr-docs)
 - [Comunidad CRLibre](https://crlibre.org) · [Telegram @CRLibreFE](https://crlibre.org/chats/)
 
 ## Licencia
