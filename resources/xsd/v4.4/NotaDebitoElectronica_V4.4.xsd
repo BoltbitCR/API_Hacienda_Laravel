@@ -563,8 +563,8 @@ Este campo se obtiene de multiplicar la "Cantidad de la unidad de medida a utili
 																							</xs:annotation>
 																							<xs:simpleType>
 																								<xs:restriction base="xs:decimal">
-																									<xs:totalDigits value="5"/>
-																									<xs:fractionDigits value="2"/>
+																									<xs:totalDigits value="10"/>
+																									<xs:fractionDigits value="5"/>
 																								</xs:restriction>
 																							</xs:simpleType>
 																						</xs:element>
@@ -961,7 +961,7 @@ se obtiene de la sumatoria de los campos “Subtotal”, “Impuesto Neto”.</x
 							</xs:element>
 							<xs:element name="OtroContenido" minOccurs="0" maxOccurs="unbounded">
 								<xs:annotation>
-									<xs:documentation>Elemento opcional que se puede utilizar para almacenar contenido estructurado.</xs:documentation>
+									<xs:documentation>Elemento opcional que se puede utilizar para almacenar texto.</xs:documentation>
 								</xs:annotation>
 								<xs:complexType>
 									<xs:simpleContent>
@@ -978,7 +978,7 @@ se obtiene de la sumatoria de los campos “Subtotal”, “Impuesto Neto”.</x
 						</xs:sequence>
 					</xs:complexType>
 				</xs:element>
-				<xs:element ref="ds:Signature" minOccurs="1" maxOccurs="1"/>
+				<xs:element ref="ds:Signature" minOccurs="1" maxOccurs="5"/>
 			</xs:sequence>
 		</xs:complexType>
 	</xs:element>
@@ -1203,7 +1203,7 @@ alcohólicas, suministrado por la Dirección General de Aduanas</xs:documentatio
 				</xs:annotation>
 				<xs:simpleType>
 					<xs:restriction base="xs:integer">
-						<xs:minInclusive value="10000000"/>
+						<xs:minInclusive value="100"/>
 						<xs:maxInclusive value="99999999999999999999"/>
 					</xs:restriction>
 				</xs:simpleType>
@@ -1454,8 +1454,8 @@ componentes del surtido que se deben incluir en estos casos</xs:documentation>
 							</xs:annotation>
 							<xs:simpleType>
 								<xs:restriction base="xs:decimal">
-									<xs:totalDigits value="5"/>
-									<xs:fractionDigits value="2"/>
+									<xs:totalDigits value="10"/>
+									<xs:fractionDigits value="5"/>
 								</xs:restriction>
 							</xs:simpleType>
 						</xs:element>
@@ -1825,22 +1825,12 @@ Además, cuando se seleccione el código 04, 08, 09 y 10 de la nota 16 en “Tip
 						<xs:enumeration value="VUV"/>
 						<xs:enumeration value="WST"/>
 						<xs:enumeration value="XAF"/>
-						<xs:enumeration value="XAG"/>
-						<xs:enumeration value="XAU"/>
-						<xs:enumeration value="XBA"/>
-						<xs:enumeration value="XBB"/>
-						<xs:enumeration value="XBC"/>
-						<xs:enumeration value="XBD"/>
 						<xs:enumeration value="XCD"/>
 						<xs:enumeration value="XDR"/>
 						<xs:enumeration value="XOF"/>
-						<xs:enumeration value="XPD"/>
 						<xs:enumeration value="XPF"/>
-						<xs:enumeration value="XPT"/>
 						<xs:enumeration value="XSU"/>
-						<xs:enumeration value="XTS"/>
 						<xs:enumeration value="XUA"/>
-						<xs:enumeration value="XXX"/>
 						<xs:enumeration value="YER"/>
 						<xs:enumeration value="ZAR"/>
 						<xs:enumeration value="ZMW"/>
@@ -1871,7 +1861,7 @@ Además, cuando se seleccione el código 04, 08, 09 y 10 de la nota 16 en “Tip
 			<xs:documentation>Tipo de dato String que solo permite el uso de números con un largo de 50.</xs:documentation>
 		</xs:annotation>
 		<xs:restriction base="xs:string">
-			<xs:pattern value="\d{50,50}"/>
+			<xs:pattern value="[a-zA-Z0-9]{50,50}"/>
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="NumeroConsecutivoType">
@@ -2794,7 +2784,7 @@ Además, cuando se seleccione el código 04, 08, 09 y 10 de la nota 16 en “Tip
 			</xs:enumeration>
 			<xs:enumeration value="03">
 				<xs:annotation>
-					<xs:documentation>nota de crédito electrónica</xs:documentation>
+					<xs:documentation>Nota de crédito electrónica</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
 			<xs:enumeration value="04">
@@ -2877,6 +2867,16 @@ Además, cuando se seleccione el código 04, 08, 09 y 10 de la nota 16 en “Tip
 					<xs:documentation>Nota de Débito a Factura Electrónica de Compra</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
+			<xs:enumeration value="19">
+				<xs:annotation>
+					<xs:documentation>Factura Electrónica de Exportación</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="20">
+				<xs:annotation>
+					<xs:documentation>Recibo Electrónico de Pago</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="CodigoReferenciaType">
@@ -2936,6 +2936,26 @@ Además, cuando se seleccione el código 04, 08, 09 y 10 de la nota 16 en “Tip
 			<xs:enumeration value="12">
 				<xs:annotation>
 					<xs:documentation>Crédito por exoneración posterior a la facturación</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="13">
+				<xs:annotation>
+					<xs:documentation>Anula documento de referencia por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="14">
+				<xs:annotation>
+					<xs:documentation>Corrige monto por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="15">
+				<xs:annotation>
+					<xs:documentation>Sustituye comprobante electrónico por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="16">
+				<xs:annotation>
+					<xs:documentation>Sustituye comprobante electrónico rechazado</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
 			<xs:enumeration value="99">

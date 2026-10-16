@@ -309,7 +309,7 @@ se obtiene de la sumatoria de los campos “Subtotal”, “Impuesto Neto”.</x
 						</xs:sequence>
 					</xs:complexType>
 				</xs:element>
-				<xs:element ref="ds:Signature" minOccurs="1" maxOccurs="1"/>
+				<xs:element ref="ds:Signature" minOccurs="1" maxOccurs="5"/>
 			</xs:sequence>
 		</xs:complexType>
 	</xs:element>
@@ -644,22 +644,12 @@ Cuando en el código de impuesto se defina IVA Bienes Usados se deberá utilizar
 						<xs:enumeration value="VUV"/>
 						<xs:enumeration value="WST"/>
 						<xs:enumeration value="XAF"/>
-						<xs:enumeration value="XAG"/>
-						<xs:enumeration value="XAU"/>
-						<xs:enumeration value="XBA"/>
-						<xs:enumeration value="XBB"/>
-						<xs:enumeration value="XBC"/>
-						<xs:enumeration value="XBD"/>
 						<xs:enumeration value="XCD"/>
 						<xs:enumeration value="XDR"/>
 						<xs:enumeration value="XOF"/>
-						<xs:enumeration value="XPD"/>
 						<xs:enumeration value="XPF"/>
-						<xs:enumeration value="XPT"/>
 						<xs:enumeration value="XSU"/>
-						<xs:enumeration value="XTS"/>
 						<xs:enumeration value="XUA"/>
-						<xs:enumeration value="XXX"/>
 						<xs:enumeration value="YER"/>
 						<xs:enumeration value="ZAR"/>
 						<xs:enumeration value="ZMW"/>
@@ -690,7 +680,7 @@ Cuando en el código de impuesto se defina IVA Bienes Usados se deberá utilizar
 			<xs:documentation>Tipo de dato String que solo permite el uso de números con un largo de 50.</xs:documentation>
 		</xs:annotation>
 		<xs:restriction base="xs:string">
-			<xs:pattern value="\d{50,50}"/>
+			<xs:pattern value="[a-zA-Z0-9]{50,50}"/>
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="NumeroConsecutivoType">
@@ -840,7 +830,7 @@ Cuando en el código de impuesto se defina IVA Bienes Usados se deberá utilizar
 			</xs:enumeration>
 			<xs:enumeration value="03">
 				<xs:annotation>
-					<xs:documentation>nota de crédito electrónica</xs:documentation>
+					<xs:documentation>Nota de crédito electrónica</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
 			<xs:enumeration value="04">
@@ -923,6 +913,16 @@ Cuando en el código de impuesto se defina IVA Bienes Usados se deberá utilizar
 					<xs:documentation>Nota de Débito a Factura Electrónica de Compra</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
+			<xs:enumeration value="19">
+				<xs:annotation>
+					<xs:documentation>Factura Electrónica de Exportación</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="20">
+				<xs:annotation>
+					<xs:documentation>Recibo Electrónico de Pago</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="CodigoReferenciaType">
@@ -982,6 +982,31 @@ Cuando en el código de impuesto se defina IVA Bienes Usados se deberá utilizar
 			<xs:enumeration value="12">
 				<xs:annotation>
 					<xs:documentation>Crédito por exoneración posterior a la facturación</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="13">
+				<xs:annotation>
+					<xs:documentation>Anula documento de referencia por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="14">
+				<xs:annotation>
+					<xs:documentation>Corrige monto por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="15">
+				<xs:annotation>
+					<xs:documentation>Sustituye comprobante electrónico por error material</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="16">
+				<xs:annotation>
+					<xs:documentation>Sustituye comprobante electrónico rechazado</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="17">
+				<xs:annotation>
+					<xs:documentation>Pago a comprobante electrónico</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
 			<xs:enumeration value="99">
