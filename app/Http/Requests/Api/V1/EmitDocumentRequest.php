@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Services\Emission\DocumentEmissionService;
+use App\Services\Xml\InformacionReferencia;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Solicitud de emisión de un comprobante electrónico. El emisor sale de la
@@ -42,8 +44,113 @@ class EmitDocumentRequest extends FormRequest
             'receptor_num_identif' => ['sometimes', 'string'],
             'receptor_email' => ['sometimes', 'email'],
 
+            // InformacionReferencia (notas 9 y 10 de los Anexos 4.4). Si viene
+            // en `params`, prepareForValidation() la sube acá.
+            'informacion_referencia' => ['required_if:tipo,NC,ND', 'array', 'max:'.InformacionReferencia::MAXIMO],
+            'informacion_referencia.*' => ['array'],
+            'informacion_referencia.*.tipoDoc' => ['required', 'string', Rule::in(InformacionReferencia::TIPOS_DOC)],
+            'informacion_referencia.*.tipoDocOtro' => ['required_if:informacion_referencia.*.tipoDoc,99', 'nullable', 'string', 'min:5', 'max:100'],
+            'informacion_referencia.*.numero' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', 'max:50'],
+            'informacion_referencia.*.fechaEmision' => ['required', 'date'],
+            'informacion_referencia.*.codigo' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', Rule::in(InformacionReferencia::CODIGOS)],
+            'informacion_referencia.*.codigoOtro' => ['required_if:informacion_referencia.*.codigo,99', 'nullable', 'string', 'min:5', 'max:100'],
+            'informacion_referencia.*.razon' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', 'min:3', 'max:180'],
+
             // Escape hatch: parámetros adicionales del generador legacy.
             'params' => ['sometimes', 'array'],
+        ];
+    }
+
+    /**
+     * La referencia puede llegar como JSON (string) o dentro de `params`:
+     * se deja como array en `informacion_referencia` para validarla igual
+     * venga por donde venga.
+     */
+    protected function prepareForValidation(): void
+    {
+        $params = $this->input('params');
+        $referencia = $this->input('informacion_referencia');
+
+        if ($referencia === null && is_array($params) && array_key_exists('informacion_referencia', $params)) {
+            $referencia = $params['informacion_referencia'];
+            unset($params['informacion_referencia']);
+            $this->merge(['params' => $params]);
+        }
+
+        if (is_string($referencia)) {
+            $decoded = json_decode($referencia, true);
+            $referencia = is_array($decoded) ? $decoded : $referencia;
+        }
+
+        if ($referencia !== null) {
+            $this->merge(['informacion_referencia' => $referencia]);
+        }
+    }
+
+    /** @return array<int, callable(Validator): void> */
+    public function after(): array
+    {
+        return [$this->validateReferenciasCruzadas(...)];
+    }
+
+    /**
+     * Reglas que dependen del tipo de comprobante o de otro campo de la
+     * misma referencia (anexo, págs. 57-58 y notas al pie 35-36).
+     */
+    private function validateReferenciasCruzadas(Validator $validator): void
+    {
+        $tipo = $this->input('tipo');
+        $referencias = $this->input('informacion_referencia');
+
+        if (! is_array($referencias)) {
+            return;
+        }
+
+        foreach ($referencias as $i => $ref) {
+            if (! is_array($ref)) {
+                continue;
+            }
+
+            $tipoDoc = $ref['tipoDoc'] ?? null;
+            $codigo = $ref['codigo'] ?? null;
+            $numero = $ref['numero'] ?? null;
+
+            if (in_array($codigo, InformacionReferencia::CODIGOS_SOLO_REP, true)) {
+                $validator->errors()->add("informacion_referencia.{$i}.codigo", 'El código 17 «Pago a comprobante electrónico» solo se usa en el Recibo Electrónico de Pago.');
+            }
+
+            if ($tipoDoc === InformacionReferencia::TIPO_SOLO_NOTAS && ! in_array($tipo, ['NC', 'ND'], true)) {
+                $validator->errors()->add("informacion_referencia.{$i}.tipoDoc", 'El tipo 09 «Devolución mercadería» solo se usa en notas de crédito y débito.');
+            }
+
+            if ($tipoDoc === InformacionReferencia::TIPO_SOLO_FEC && $tipo !== 'FEC') {
+                $validator->errors()->add("informacion_referencia.{$i}.tipoDoc", 'El tipo 16 «Comprobante de Proveedor No Domiciliado» solo se usa en la factura electrónica de compra.');
+            }
+
+            if (in_array($tipoDoc, InformacionReferencia::TIPOS_CON_CLAVE, true)
+                && is_string($numero) && ! preg_match('/^[A-Za-z0-9]{50}$/', $numero)) {
+                $validator->errors()->add("informacion_referencia.{$i}.numero", 'Para este tipo de documento el número es la clave de 50 caracteres del comprobante.');
+            }
+        }
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'informacion_referencia.required_if' => 'Las notas de crédito y débito requieren la información de referencia.',
+            'informacion_referencia.max' => 'Se permiten como máximo 10 referencias.',
+            'informacion_referencia.*.tipoDoc.required' => 'Indica el tipo de documento de referencia (tipoDoc).',
+            'informacion_referencia.*.tipoDoc.in' => 'El tipo de documento de referencia no está en la nota 10 de los Anexos 4.4.',
+            'informacion_referencia.*.tipoDocOtro.required_if' => 'Con tipoDoc 99 describe el documento en tipoDocOtro.',
+            'informacion_referencia.*.numero.required_unless' => 'Indica el número o la clave del documento de referencia.',
+            'informacion_referencia.*.fechaEmision.required' => 'Indica la fecha de emisión del documento de referencia.',
+            'informacion_referencia.*.fechaEmision.date' => 'La fecha de emisión de la referencia debe ser una fecha ISO-8601.',
+            'informacion_referencia.*.codigo.required_unless' => 'Indica el código de referencia.',
+            'informacion_referencia.*.codigo.in' => 'El código de referencia no está en la nota 9 de los Anexos 4.4.',
+            'informacion_referencia.*.codigoOtro.required_if' => 'Con código 99 describe la referencia en codigoOtro.',
+            'informacion_referencia.*.razon.required_unless' => 'Indica la razón de la referencia.',
+            'informacion_referencia.*.razon.max' => 'La razón de la referencia admite como máximo 180 caracteres.',
         ];
     }
 

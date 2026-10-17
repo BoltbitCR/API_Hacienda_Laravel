@@ -383,7 +383,7 @@ test('una empresa con cédula jurídica alfanumérica emite una FE válida', fun
         && $request['emisor']['numeroIdentificacion'] === '3101A00001');
 });
 
-test('un código de referencia fuera del catálogo devuelve 422 y no consume el envío', function () {
+test('un código de referencia fuera del catálogo devuelve 422 y no llega a Hacienda', function () {
     (new CatalogSeeder)->run();
     [$user] = companyWithCredentials();
 
@@ -424,7 +424,7 @@ test('un código de referencia fuera del catálogo devuelve 422 y no consume el 
         'receptor_nombre' => 'Cliente ABC',
         'receptor_tipo_identif' => '01',
         'receptor_num_identif' => '208830333',
-    ])->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'codigo = 03'));
+    ])->assertStatus(422)->assertJsonValidationErrors('informacion_referencia.0.codigo');
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'recepcion'));
 });
