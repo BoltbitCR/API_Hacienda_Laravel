@@ -3665,7 +3665,10 @@ function genXMLMr()
     $clave = params_get("clave");                                      // d{50,50}
     // Datos vendedor = emisor
     $numeroCedulaEmisor = params_get("numero_cedula_emisor");                       // d{12,12} cedula fisica,juridica,NITE,DIMEX
-    $numeroCedulaEmisor = str_pad($numeroCedulaEmisor, 12, "0", STR_PAD_LEFT);
+    // Una cédula jurídica alfanumérica va tal cual: el relleno con ceros es de las numéricas.
+    if (!preg_match('/[A-Za-z]/', (string) $numeroCedulaEmisor)) {
+        $numeroCedulaEmisor = str_pad($numeroCedulaEmisor, 12, "0", STR_PAD_LEFT);
+    }
 
     // Datos mensaje receptor
     $fechaEmisionDoc = params_get("fecha_emision_doc");                          // fecha de emision de la confirmacion
@@ -3678,7 +3681,10 @@ function genXMLMr()
 
     // Datos comprador = receptor
     $numeroCedulaReceptor = params_get("numero_cedula_receptor");                     // d{12,12}cedula fisica, juridica, NITE, DIMEX del comprador
-    $numeroCedulaReceptor = str_pad($numeroCedulaReceptor, 12, "0", STR_PAD_LEFT);
+    // Una cédula jurídica alfanumérica va tal cual: el relleno con ceros es de las numéricas.
+    if (!preg_match('/[A-Za-z]/', (string) $numeroCedulaReceptor)) {
+        $numeroCedulaReceptor = str_pad($numeroCedulaReceptor, 12, "0", STR_PAD_LEFT);
+    }
 
     // Validate string sizes
     $codigoActividad = str_pad($codigoActividad, 6, "0", STR_PAD_LEFT);

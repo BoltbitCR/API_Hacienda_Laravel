@@ -119,10 +119,10 @@ class DocumentController extends Controller
     public function statusByClave(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'clave' => ['required', 'string', 'regex:/^\d{50}$/'],
+            'clave' => ['required', 'string', 'regex:/^[A-Za-z0-9]{50}$/'],
             'environment' => ['nullable', 'in:prod,stag'],
         ], [
-            'clave.regex' => 'La clave debe tener exactamente 50 dígitos.',
+            'clave.regex' => 'La clave debe tener exactamente 50 caracteres alfanuméricos.',
         ]);
 
         $company = ActingCompany::for($request->user());

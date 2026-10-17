@@ -75,7 +75,7 @@ class DocumentEmissionService
         $claveResult = $this->clave->generate(
             tipoDocumento: $tipo === 'MR' ? 'CCE' : $tipo,
             tipoCedula: (string) $company->tipo_cedula,
-            cedula: (string) $company->cedula,
+            cedula: $this->cedulaEmisor($company),
             situacion: $company->situacion ?: 'normal',
             codigoPais: '506',
             consecutivo: substr((string) $consecutivo, -10),
@@ -134,7 +134,7 @@ class DocumentEmissionService
             'fecha' => $documentParams['fecha_emision'] ?? now()->format('Y-m-d\TH:i:sP'),
             'emisor' => [
                 'tipoIdentificacion' => $company->tipo_cedula,
-                'numeroIdentificacion' => $company->cedula,
+                'numeroIdentificacion' => $this->cedulaEmisor($company),
             ],
             'comprobanteXml' => base64_encode($xmlFirmado),
         ], $clientId, $accessToken);
@@ -159,6 +159,19 @@ class DocumentEmissionService
             'envio' => $envio,
             'document_id' => $document->id,
         ];
+    }
+
+    /**
+     * La cédula jurídica se manda normalizada (mayúsculas, sin guiones) en
+     * la clave, el XML y la recepción; las demás van tal cual.
+     */
+    private function cedulaEmisor(Company $company): string
+    {
+        $cedula = (string) $company->cedula;
+
+        return in_array((string) $company->tipo_cedula, ['juridico', '02'], true)
+            ? ClaveService::normalizarCedula($cedula)
+            : $cedula;
     }
 
     private function credential(Company $company, string $environment): HaciendaCredential
@@ -220,10 +233,10 @@ class DocumentEmissionService
     private function emisorParams(Company $company): array
     {
         return [
-            'proveedor_sistemas' => (string) $company->cedula,
+            'proveedor_sistemas' => $this->cedulaEmisor($company),
             'emisor_nombre' => (string) $company->nombre,
             'emisor_tipo_identif' => (string) $company->tipo_cedula,
-            'emisor_num_identif' => (string) $company->cedula,
+            'emisor_num_identif' => $this->cedulaEmisor($company),
             'emisor_nombre_comercial' => (string) $company->nombre_comercial,
             'emisor_provincia' => $this->geoCode($company->id_provincia, 1),
             'emisor_canton' => $this->geoCode($company->id_canton, 2),
