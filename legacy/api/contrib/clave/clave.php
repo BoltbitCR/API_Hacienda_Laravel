@@ -115,7 +115,8 @@ function getClave($tipoDocumento = "", $tipoCedula = "", $cedula = "", $situacio
         'CPCE' => '06', // Confirmacion Parcial Comprobante Electronico
         'RCE'  => '07', // Rechazo Comprobante Electronico
         'FEC'  => '08', // Factura Electronica de Compra
-        'FEE'  => '09'  // Factura Electronica de Exportación
+        'FEE'  => '09', // Factura Electronica de Exportación
+        'REP'  => '10'  // Recibo Electronico de Pago
     );
 
     $tipoDocumento = $tipos[$tipoDoc] ?? null;
