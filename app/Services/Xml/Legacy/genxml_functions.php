@@ -30,12 +30,11 @@ namespace App\Services\Xml\Legacy;
 /* * ************************************************** */
 /* Constantes de validacion                             */
 /* * ************************************************** */
-define("TIPODOCREFVALUES", array('01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '99'));
-define('CODIDOREFVALUES', array('01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '99'));
-// Nota 9: el 17 «Pago a comprobante electrónico» es exclusivo del Recibo Electrónico de Pago.
-define('CODIDOREFSOLOREP', array('17'));
-// TipoDocIR cuyo Numero Hacienda valida como clave (anexo 4.4, pág. 58), más el 10 (rechazado), que también tiene clave.
-define('TIPODOCREFCONCLAVE', array('01', '02', '03', '04', '09', '10', '11', '12', '15', '17', '18', '19', '20'));
+// Catálogos de referencia (notas 9 y 10): ver App\Services\Xml\InformacionReferencia.
+define("TIPODOCREFVALUES", \App\Services\Xml\InformacionReferencia::TIPOS_DOC);
+define('CODIDOREFVALUES', \App\Services\Xml\InformacionReferencia::CODIGOS);
+define('CODIDOREFSOLOREP', \App\Services\Xml\InformacionReferencia::CODIGOS_SOLO_REP);
+define('TIPODOCREFCONCLAVE', \App\Services\Xml\InformacionReferencia::TIPOS_CON_CLAVE);
 const CODIGOACTIVIDADSIZE = 6;
 const EMISORNOMBREMAXSIZE = 100;
 const EMISORNUMEROTELMIN = 8;
