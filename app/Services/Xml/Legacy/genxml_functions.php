@@ -5337,6 +5337,163 @@ function genXMLFee()
 /* Funcion de prueba                                    */
 /* * ************************************************** */
 
+/**
+ * Recibo Electrónico de Pago (REP, tipo 10) de los Anexos 4.4: cancela una
+ * factura emitida con condición de venta 08 (servicios al Estado a
+ * crédito) o 10 (venta a crédito con IVA diferido, art. 27 LIVA). Va con
+ * condición 09 u 11 y referencia la factura con el código 17 «Pago a
+ * comprobante electrónico» (exclusivo del REP).
+ *
+ * No viene del API legacy (nunca tuvo REP): se arma con XMLWriter, que
+ * escapa todo, en vez de concatenar strings.
+ */
+function genXMLRep()
+{
+    $condicionVenta = (string) params_get("condicion_venta");
+    if (!in_array($condicionVenta, \App\Services\Xml\InformacionReferencia::REP_CONDICIONES_VENTA, true)) {
+        tools_reply("El Recibo Electrónico de Pago solo admite la condición de venta 09 u 11. condicion_venta = " . $condicionVenta, true);
+    }
+
+    $emisorEmail = trim((string) params_get("emisor_email"));
+    if (!preg_match(EMAIL_REGEX, $emisorEmail)) {
+        tools_reply("El Recibo Electrónico de Pago exige el correo del emisor", true);
+    }
+
+    $referencias = json_decode((string) params_get("informacion_referencia"));
+    if (!is_array($referencias) || count($referencias) === 0) {
+        tools_reply("El Recibo Electrónico de Pago exige la información de referencia de la factura que cancela", true);
+    }
+
+    $detalles = json_decode((string) params_get("detalles"));
+    if (!is_array($detalles) || count($detalles) === 0) {
+        tools_reply("Se requiere al menos una línea en el detalle", true);
+    }
+
+    $monto = fn ($v) => number_format((float) $v, 5, '.', '');
+
+    $x = new \XMLWriter();
+    $x->openMemory();
+    $x->startDocument('1.0', 'utf-8');
+    $x->startElementNs(null, 'ReciboElectronicoPago', 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/reciboElectronicoPago');
+    $x->writeAttribute('xmlns:xsd', 'http://www.w3.org/2001/XMLSchema');
+    $x->writeAttribute('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+
+    $x->writeElement('Clave', (string) params_get("clave"));
+    $x->writeElement('ProveedorSistemas', (string) params_get("proveedor_sistemas"));
+    $x->writeElement('NumeroConsecutivo', (string) params_get("consecutivo"));
+    $x->writeElement('FechaEmision', (string) params_get("fecha_emision"));
+
+    $x->startElement('Emisor');
+    $x->writeElement('Nombre', (string) params_get("emisor_nombre"));
+    $x->startElement('Identificacion');
+    $x->writeElement('Tipo', (string) params_get("emisor_tipo_identif"));
+    $x->writeElement('Numero', (string) params_get("emisor_num_identif"));
+    $x->endElement();
+    $x->writeElement('CorreoElectronico', $emisorEmail);
+    $x->endElement();
+
+    $x->startElement('Receptor');
+    $x->writeElement('Nombre', (string) params_get("receptor_nombre"));
+    $x->startElement('Identificacion');
+    $x->writeElement('Tipo', (string) params_get("receptor_tipo_identif"));
+    $x->writeElement('Numero', (string) params_get("receptor_num_identif"));
+    $x->endElement();
+    $receptorEmail = trim((string) params_get("receptor_email"));
+    if ($receptorEmail !== '' && preg_match(EMAIL_REGEX, $receptorEmail)) {
+        $x->writeElement('CorreoElectronico', $receptorEmail);
+    }
+    $x->endElement();
+
+    $x->writeElement('CondicionVenta', $condicionVenta);
+
+    $x->startElement('DetalleServicio');
+    $l = 1;
+    foreach ($detalles as $d) {
+        $x->startElement('LineaDetalle');
+        $x->writeElement('NumeroLinea', (string) $l++);
+        $x->writeElement('Detalle', mb_substr((string) ($d->detalle ?? ''), 0, 200));
+        $x->writeElement('MontoTotal', $monto($d->montoTotal ?? 0));
+        $x->writeElement('SubTotal', $monto($d->subTotal ?? 0));
+        foreach (($d->impuesto ?? []) as $i) {
+            $x->startElement('Impuesto');
+            $x->writeElement('Codigo', (string) $i->codigo);
+            if (isset($i->codigoTarifa) && $i->codigoTarifa !== '') {
+                $x->writeElement('CodigoTarifaIVA', (string) $i->codigoTarifa);
+            }
+            if (isset($i->tarifa)) {
+                $x->writeElement('Tarifa', (string) (0 + $i->tarifa));
+            }
+            $x->writeElement('Monto', $monto($i->monto ?? 0));
+            $x->endElement();
+        }
+        $x->writeElement('ImpuestoNeto', $monto($d->impuestoNeto ?? 0));
+        $x->writeElement('MontoTotalLinea', $monto($d->montoTotalLinea ?? 0));
+        $x->endElement();
+    }
+    $x->endElement();
+
+    $x->startElement('ResumenFactura');
+    $x->startElement('CodigoTipoMoneda');
+    $x->writeElement('CodigoMoneda', (string) (params_get("cod_moneda") ?: 'CRC'));
+    $x->writeElement('TipoCambio', $monto(params_get("tipo_cambio") ?: 1));
+    $x->endElement();
+    $x->writeElement('TotalVenta', $monto(params_get("total_ventas")));
+    $x->writeElement('TotalVentaNeta', $monto(params_get("total_ventas_neta")));
+    foreach ((json_decode((string) params_get("totalDesgloseImpuesto")) ?: []) as $t) {
+        $x->startElement('TotalDesgloseImpuesto');
+        $x->writeElement('Codigo', (string) $t->Codigo);
+        if (isset($t->CodigoTarifaIVA) && $t->CodigoTarifaIVA !== '') {
+            $x->writeElement('CodigoTarifaIVA', (string) $t->CodigoTarifaIVA);
+        }
+        $x->writeElement('TotalMontoImpuesto', $monto($t->TotalMontoImpuesto ?? 0));
+        $x->endElement();
+    }
+    if (params_get("total_impuestos") !== null && params_get("total_impuestos") !== '') {
+        $x->writeElement('TotalImpuesto', $monto(params_get("total_impuestos")));
+    }
+    foreach ((json_decode((string) params_get("medios_pago")) ?: []) as $mp) {
+        $x->startElement('MedioPago');
+        $x->writeElement('TipoMedioPago', (string) $mp->tipoMedioPago);
+        if (isset($mp->medioPagoOtros) && $mp->medioPagoOtros !== '') {
+            $x->writeElement('MedioPagoOtros', mb_substr((string) $mp->medioPagoOtros, 0, 100));
+        }
+        if (isset($mp->totalMedioPago) && is_numeric($mp->totalMedioPago)) {
+            $x->writeElement('TotalMedioPago', $monto($mp->totalMedioPago));
+        }
+        $x->endElement();
+    }
+    $x->writeElement('TotalComprobante', $monto(params_get("total_comprobante")));
+    $x->endElement();
+
+    foreach ($referencias as $ref) {
+        if (!in_array($ref->tipoDoc ?? null, \App\Services\Xml\InformacionReferencia::REP_TIPOS_DOC, true)) {
+            tools_reply("En el Recibo Electrónico de Pago el tipoDoc de la referencia debe ser 01, 04, 07, 08, 10 o 20. tipoDoc = " . ($ref->tipoDoc ?? ''), true);
+        }
+        if (isset($ref->codigo) && !in_array($ref->codigo, CODIDOREFVALUES, true)) {
+            tools_reply("El parámetro codigo no cumple con la estructura establecida. codigo = " . $ref->codigo, true);
+        }
+        $x->startElement('InformacionReferencia');
+        $x->writeElement('TipoDocIR', (string) $ref->tipoDoc);
+        $x->writeElement('Numero', (string) ($ref->numero ?? ''));
+        $x->writeElement('FechaEmisionIR', (string) ($ref->fechaEmision ?? ''));
+        if (isset($ref->codigo)) {
+            $x->writeElement('Codigo', (string) $ref->codigo);
+        }
+        if (isset($ref->razon)) {
+            $x->writeElement('Razon', mb_substr((string) $ref->razon, 0, 180));
+        }
+        $x->endElement();
+    }
+
+    $x->endElement();
+    $x->endDocument();
+
+    return array(
+        "clave" => params_get("clave"),
+        "xml" => base64_encode($x->outputMemory()),
+    );
+}
+
 function test()
 {
     return "Esto es un test";

@@ -23,6 +23,7 @@ class XsdValidatorService
         'RCE' => 'MensajeReceptor_V4.4.xsd',
         'FEC' => 'FacturaElectronicaCompra_V4.4.xsd',
         'FEE' => 'FacturaElectronicaExportacion_V4.4.xsd',
+        'REP' => 'ReciboElectronicoPago_V4.4.xsd',
     ];
 
     /** Variante sin firma, útil para validar antes de firmar. */

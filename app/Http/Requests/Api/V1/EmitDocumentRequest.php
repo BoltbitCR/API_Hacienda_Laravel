@@ -31,7 +31,10 @@ class EmitDocumentRequest extends FormRequest
 
             // Datos del documento (mismas claves que el generador v4.4).
             'fecha_emision' => ['sometimes', 'string'],
-            'condicion_venta' => ['required_unless:tipo,MR', 'string'],
+            // REP: solo 09/11 (nota 5); fuera del REP no se aceptan.
+            'condicion_venta' => ['required_unless:tipo,MR', 'string', $this->input('tipo') === 'REP'
+                ? Rule::in(InformacionReferencia::REP_CONDICIONES_VENTA)
+                : Rule::notIn(InformacionReferencia::REP_CONDICIONES_VENTA)],
             'medios_pago' => ['sometimes'],
             'detalles' => ['required_unless:tipo,MR'],
             'total_ventas' => ['required_unless:tipo,MR'],
@@ -46,7 +49,7 @@ class EmitDocumentRequest extends FormRequest
 
             // InformacionReferencia (notas 9 y 10 de los Anexos 4.4). Si viene
             // en `params`, prepareForValidation() la sube acá.
-            'informacion_referencia' => ['required_if:tipo,NC,ND', 'array', 'max:'.InformacionReferencia::MAXIMO],
+            'informacion_referencia' => ['required_if:tipo,NC,ND,REP', 'array', 'max:'.InformacionReferencia::MAXIMO],
             'informacion_referencia.*' => ['array'],
             'informacion_referencia.*.tipoDoc' => ['required', 'string', Rule::in(InformacionReferencia::TIPOS_DOC)],
             'informacion_referencia.*.tipoDocOtro' => ['required_if:informacion_referencia.*.tipoDoc,99', 'nullable', 'string', 'min:5', 'max:100'],
@@ -115,7 +118,11 @@ class EmitDocumentRequest extends FormRequest
             $codigo = $ref['codigo'] ?? null;
             $numero = $ref['numero'] ?? null;
 
-            if (in_array($codigo, InformacionReferencia::CODIGOS_SOLO_REP, true)) {
+            if ($tipo === 'REP' && ! in_array($tipoDoc, InformacionReferencia::REP_TIPOS_DOC, true)) {
+                $validator->errors()->add("informacion_referencia.{$i}.tipoDoc", 'En el Recibo Electrónico de Pago el tipo de documento de referencia es 01, 04, 07, 08, 10 o 20.');
+            }
+
+            if ($tipo !== 'REP' && in_array($codigo, InformacionReferencia::CODIGOS_SOLO_REP, true)) {
                 $validator->errors()->add("informacion_referencia.{$i}.codigo", 'El código 17 «Pago a comprobante electrónico» solo se usa en el Recibo Electrónico de Pago.');
             }
 
@@ -138,7 +145,9 @@ class EmitDocumentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'informacion_referencia.required_if' => 'Las notas de crédito y débito requieren la información de referencia.',
+            'informacion_referencia.required_if' => 'Las notas de crédito y débito y el Recibo Electrónico de Pago requieren la información de referencia.',
+            'condicion_venta.in' => 'El Recibo Electrónico de Pago solo admite la condición de venta 09 u 11.',
+            'condicion_venta.not_in' => 'Las condiciones de venta 09 y 11 son exclusivas del Recibo Electrónico de Pago.',
             'informacion_referencia.max' => 'Se permiten como máximo 10 referencias.',
             'informacion_referencia.*.tipoDoc.required' => 'Indica el tipo de documento de referencia (tipoDoc).',
             'informacion_referencia.*.tipoDoc.in' => 'El tipo de documento de referencia no está en la nota 10 de los Anexos 4.4.',

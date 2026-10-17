@@ -33,6 +33,16 @@ final class InformacionReferencia
     /** Pág. 57: el 16 «Comprobante de Proveedor No Domiciliado» solo en la Factura Electrónica de Compra. */
     public const TIPO_SOLO_FEC = '16';
 
+    /** Pág. 57: TipoDocIR que admite el Recibo Electrónico de Pago. */
+    public const REP_TIPOS_DOC = ['01', '04', '07', '08', '10', '20'];
+
+    /**
+     * Nota 5: condiciones de venta del Recibo Electrónico de Pago. El 09
+     * cancela una factura 08 (servicios al Estado a crédito) y el 11 una
+     * factura 10 (venta a crédito con IVA diferido, art. 27 LIVA).
+     */
+    public const REP_CONDICIONES_VENTA = ['09', '11'];
+
     /** Máximo de repeticiones de InformacionReferencia en el XSD. */
     public const MAXIMO = 10;
 }

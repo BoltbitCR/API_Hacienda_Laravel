@@ -21,6 +21,7 @@ class ClaveService
         'RCE' => '07',  // Rechazo Comprobante Electrónico
         'FEC' => '08',  // Factura Electrónica de Compra
         'FEE' => '09',  // Factura Electrónica de Exportación
+        'REP' => '10',  // Recibo Electrónico de Pago (Anexos 4.4, nota 3)
     ];
 
     /**

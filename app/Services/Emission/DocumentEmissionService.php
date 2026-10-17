@@ -35,6 +35,7 @@ class DocumentEmissionService
         'TE' => 'genXMLTE',
         'FEC' => 'genXMLFec',
         'FEE' => 'genXMLFee',
+        'REP' => 'genXMLRep',
         'MR' => 'genXMLMr',
     ];
 
