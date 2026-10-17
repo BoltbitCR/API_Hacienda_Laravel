@@ -23,6 +23,13 @@ class ClaveService
         'FEE' => '09',  // Factura Electrónica de Exportación
     ];
 
+    /**
+     * Cédula jurídica con consecutivo alfanumérico del Registro Nacional
+     * (oficio DGL-188-2026): 4 dígitos de clase + 6 caracteres, p. ej.
+     * 3101A00001. Hacienda la admite en la clave (Anexos 4.4, nota 4.1).
+     */
+    public const CEDULA_JURIDICA_ALFANUMERICA = '/^[0-9]{4}[0-9A-Z]{6}$/';
+
     public const SITUACIONES = [
         'normal' => 1,
         'contingencia' => 2,
@@ -51,7 +58,13 @@ class ClaveService
         $mes = $fecha->format('m');
         $ano = $fecha->format('y');
 
-        if (! ctype_digit($cedula)) {
+        $esJuridica = in_array($tipoCedula, ['juridico', '02'], true);
+        if ($esJuridica) {
+            $cedula = self::normalizarCedula($cedula);
+        }
+
+        if (! ctype_digit($cedula)
+            && ! ($esJuridica && preg_match(self::CEDULA_JURIDICA_ALFANUMERICA, $cedula))) {
             return 'El parametro cedula no es numeral';
         }
 
@@ -144,5 +157,11 @@ class ClaveService
             'consecutivo' => "$consecutivoFinal",
             'length' => strlen($clave),
         ];
+    }
+
+    /** Mayúsculas y sin guiones ni espacios: «3-101-a00001» → «3101A00001». */
+    public static function normalizarCedula(string $cedula): string
+    {
+        return strtoupper(str_replace(['-', ' '], '', $cedula));
     }
 }

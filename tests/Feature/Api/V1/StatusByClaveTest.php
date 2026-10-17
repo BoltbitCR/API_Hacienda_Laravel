@@ -120,3 +120,18 @@ test('sin token no se consulta nada', function () {
     $this->getJson('/api/v1/hacienda/status?clave='.CLAVE_AJENA)
         ->assertStatus(401);
 });
+
+test('acepta una clave con letras (cédula jurídica alfanumérica)', function () {
+    [$user] = companyForStatus();
+    $clave = '50601112600'.'3101A0'.'0001'.'00100001010000000001112345678';
+
+    Http::fake([
+        '*idp*' => Http::response(['access_token' => 'fake-token', 'token_type' => 'bearer'], 200),
+        '*recepcion*' => Http::response(['clave' => $clave, 'ind-estado' => 'procesando'], 200),
+    ]);
+
+    $this->withToken(tokenFor($user))
+        ->getJson('/api/v1/hacienda/status?clave='.$clave)
+        ->assertOk()
+        ->assertJsonPath('clave', $clave);
+});
