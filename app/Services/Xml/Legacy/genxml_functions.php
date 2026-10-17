@@ -30,8 +30,12 @@ namespace App\Services\Xml\Legacy;
 /* * ************************************************** */
 /* Constantes de validacion                             */
 /* * ************************************************** */
-define("TIPODOCREFVALUES", array('01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '99'));
-define('CODIDOREFVALUES', array('01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '99'));
+define("TIPODOCREFVALUES", array('01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '99'));
+define('CODIDOREFVALUES', array('01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '99'));
+// Nota 9: el 17 «Pago a comprobante electrónico» es exclusivo del Recibo Electrónico de Pago.
+define('CODIDOREFSOLOREP', array('17'));
+// TipoDocIR cuyo Numero Hacienda valida como clave (anexo 4.4, pág. 58), más el 10 (rechazado), que también tiene clave.
+define('TIPODOCREFCONCLAVE', array('01', '02', '03', '04', '09', '10', '11', '12', '15', '17', '18', '19', '20'));
 const CODIGOACTIVIDADSIZE = 6;
 const EMISORNOMBREMAXSIZE = 100;
 const EMISORNUMEROTELMIN = 8;
@@ -41,6 +45,28 @@ const RECEPTOROTRASSENASMAXSIZE = 250;
 const RECEPTOROTRASSENASEXTRANJEROMAXSIZE = 300;
 const EMAIL_REGEX = "/^\s*\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*\s*$/";
 
+
+/**
+ * Valida el codigo y el numero de una InformacionReferencia (notas 9 y 10
+ * de los Anexos 4.4). Corta la generación con el error en lugar de dejar
+ * que Hacienda rechace el comprobante.
+ */
+function validarReferencia($ref)
+{
+    if (isset($ref->codigo)) {
+        if (!in_array($ref->codigo, CODIDOREFVALUES, true)) {
+            tools_reply("El parámetro codigo no cumple con la estructura establecida. codigo = " . $ref->codigo, true);
+        }
+        if (in_array($ref->codigo, CODIDOREFSOLOREP, true)) {
+            tools_reply("El codigo " . $ref->codigo . " solo se permite en el Recibo Electrónico de Pago", true);
+        }
+    }
+
+    if (isset($ref->numero) && in_array($ref->tipoDoc, TIPODOCREFCONCLAVE, true)
+        && !preg_match('/^[A-Za-z0-9]{50}$/', (string) $ref->numero)) {
+        tools_reply("El parámetro numero debe ser la clave de 50 caracteres del comprobante. numero = " . $ref->numero, true);
+    }
+}
 
 /* * ************************************************** */
 /* Funcion para generar XML                          */
@@ -919,13 +945,14 @@ function genXMLFe()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -935,7 +962,7 @@ function genXMLFe()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
@@ -1793,13 +1820,14 @@ function genXMLNC()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -1809,7 +1837,7 @@ function genXMLNC()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
@@ -2671,13 +2699,14 @@ function genXMLND()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -2687,7 +2716,7 @@ function genXMLND()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
@@ -3534,13 +3563,14 @@ function genXMLTE()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -3550,7 +3580,7 @@ function genXMLTE()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
@@ -4338,13 +4368,14 @@ function genXMLFec()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -4354,7 +4385,7 @@ function genXMLFec()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
@@ -5156,13 +5187,14 @@ function genXMLFee()
         foreach ($informacionReferencia as $ref) {
             if (!empty($ref->tipoDoc) && !empty($ref->fechaEmision)) {
                 if (in_array($ref->tipoDoc, TIPODOCREFVALUES, true)) {
+                    validarReferencia($ref);
                     $xmlString .= '<InformacionReferencia>';
                     $xmlString .= '<TipoDocIR>' . $ref->tipoDoc . '</TipoDocIR>';
                     if ($ref->tipoDoc === '99' && isset($ref->tipoDocOtro)) {
                         $xmlString .= '<TipoDocRefOTRO>' . htmlspecialchars($ref->tipoDocOtro) . '</TipoDocRefOTRO>';
                     }
                     if (isset($ref->numero)) {
-                        $xmlString .= '<Numero>' . $ref->numero . '</Numero>';
+                        $xmlString .= '<Numero>' . htmlspecialchars($ref->numero) . '</Numero>';
                     }
                     $xmlString .= '<FechaEmisionIR>' . $ref->fechaEmision . '</FechaEmisionIR>';
                     if (isset($ref->codigo)) {
@@ -5172,7 +5204,7 @@ function genXMLFee()
                         }
                     }
                     if (isset($ref->razon)) {
-                        $xmlString .= '<Razon>' . $ref->razon . '</Razon>';
+                        $xmlString .= '<Razon>' . htmlspecialchars($ref->razon) . '</Razon>';
                     }
                     $xmlString .= '</InformacionReferencia>';
                 } else {
