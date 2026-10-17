@@ -108,7 +108,7 @@ function emitirYValidar(string $token, string $tipo, array $extra = []): array
     return [$xmlFirmado, $resultado['errors']];
 }
 
-function referencia(string $tipoDoc, string $codigo, string $numero = CLAVE_ORIGINAL): array
+function referenciaParaXsd(string $tipoDoc, string $codigo, string $numero = CLAVE_ORIGINAL): array
 {
     return ['informacion_referencia' => [[
         'tipoDoc' => $tipoDoc,
@@ -120,7 +120,7 @@ function referencia(string $tipoDoc, string $codigo, string $numero = CLAVE_ORIG
 }
 
 test('el comprobante con la referencia nueva valida contra el XSD 4.4', function (string $tipo, string $tipoDoc, string $codigo) {
-    [$xml, $errores] = emitirYValidar(empresaEmisora(), $tipo, referencia($tipoDoc, $codigo));
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), $tipo, referenciaParaXsd($tipoDoc, $codigo));
 
     expect($errores)->toBe([])
         ->and($xml)->toContain("<TipoDocIR>{$tipoDoc}</TipoDocIR>")
