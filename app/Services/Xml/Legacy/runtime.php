@@ -119,6 +119,18 @@ function _ne74(mixed $v): bool
     return $v != '';
 }
 
+/**
+ * Valor listo para un nodo de texto del XML. El legacy concatenaba los
+ * datos crudos, así que un `&` o `<` en un nombre, una dirección o un
+ * detalle dejaba el comprobante mal formado y la firma fallaba. El cast
+ * es el mismo de la concatenación: sin caracteres especiales la salida
+ * no cambia.
+ */
+function _xml(mixed $v): string
+{
+    return htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
 /** Semántica PHP 7.4 de `$v == ""`. */
 function _eq74(mixed $v): bool
 {
