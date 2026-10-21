@@ -16,7 +16,7 @@ services:
     command: install --no-interaction --prefer-dist --ignore-platform-reqs
 
   app:
-    image: php:8.4-cli
+    image: php:8.4.27-cli
     working_dir: /var/www/html
     command: >
       bash -c "docker-php-ext-install pdo_mysql mysqli gd > /dev/null 2>&1 || true;
