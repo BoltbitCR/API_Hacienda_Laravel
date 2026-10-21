@@ -1,0 +1,18 @@
+# La imagen de PHP del docker-compose va fijada a una versión exacta:
+# Dependabot abre un PR con cada parche nuevo (incluidos los de seguridad).
+version: 2
+updates:
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: v4.4
+    schedule:
+      interval: daily
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: v4.4
+    schedule:
+      interval: weekly
