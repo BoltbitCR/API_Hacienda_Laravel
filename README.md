@@ -34,6 +34,57 @@ docker compose exec app php artisan migrate --seed
 
 Antes de levantarlo, lea [Instalación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Instalación): con Docker la conexión a la base de datos va en el `.env`.
 
+## Producción
+
+El `docker-compose.yml` es solo para desarrollo. En producción se usa `docker-compose.prod.yml`:
+
+- **app**: imagen propia (`Dockerfile`, FrankenPHP + PHP 8.4.27). Corre como `www-data` y no monta el código.
+- **mysql**: MariaDB 11.8 sin puerto publicado.
+- Los datos viven en dos volúmenes persistentes: `mysql-data` (la base) y `app-storage` (certificados `.p12`, XML subidos y logs).
+
+La app solo escucha en `127.0.0.1:8888`; para exponerla, ponga delante un proxy inverso con TLS. Otro stack del mismo host puede consumirla en `http://api_hacienda-app-1:8000` uniéndose a la red `api_hacienda_default`.
+
+### Instalación nueva
+
+```bash
+cp .env.production.example .env
+# Completar DB_PASSWORD y DB_ROOT_PASSWORD (openssl rand -hex 24), MAIL_* y CORS_ALLOWED_ORIGINS.
+docker compose build
+docker compose run --rm --no-deps app php artisan key:generate --show   # → APP_KEY en .env
+docker compose up -d
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --class=CatalogSeeder --force
+curl -s http://127.0.0.1:8888/api/v1/geo/provinces   # debe listar las 7 provincias
+```
+
+El `.env` fija `COMPOSE_FILE=docker-compose.prod.yml`, así que `docker compose` a secas usa el compose de producción. Puntos clave:
+
+- `APP_DEBUG=false` y `SCRAMBLE_ENABLED=false`: sin errores detallados y sin `/docs/api`.
+- La `APP_KEY` se genera **una sola vez** y se respalda fuera del servidor. Cifra las credenciales ATV guardadas.
+- Ver [`.env.production.example`](.env.production.example) para el detalle de cada variable.
+
+### Actualizar
+
+```bash
+git pull
+docker compose build --pull     # --pull: trae la base con el último parche de PHP
+docker compose up -d
+docker compose exec app php artisan migrate --force
+```
+
+Un `docker compose pull` no basta: la imagen de la app se construye localmente.
+
+### Si ya corría con el compose de desarrollo
+
+La base se conserva: el volumen `mysql-data` es el mismo. Mantenga la `APP_KEY` y la contraseña de la base que ya usaba, levante con `docker compose up -d --build --remove-orphans` y copie los archivos subidos al volumen:
+
+```bash
+docker compose cp ./storage/app/legacy-files app:/app/storage/app/
+docker compose exec -u root app chown -R www-data:www-data storage/app/legacy-files
+```
+
+Más detalle en el wiki: [Despliegue en producción](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Despliegue-en-producción).
+
 ## CRLibre y Factura Electrónica en Costa Rica
 
 - [Comunidad CRLibre](https://crlibre.org) · [Telegram @CRLibreFE](https://crlibre.org/chats/)
