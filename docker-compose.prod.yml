@@ -1,0 +1,63 @@
+# Producción del API Hacienda. El docker-compose.yml es solo para desarrollo.
+#
+# `name: api_hacienda` fija el nombre de la red (api_hacienda_default) y del
+# contenedor (api_hacienda-app-1): otro stack del mismo host puede consumir
+# el API en http://api_hacienda-app-1:8000 uniéndose a esa red como externa.
+#
+# Todo sale del MISMO .env (ver .env.production.example): Laravel lo recibe
+# por env_file y compose lo usa para interpolar las credenciales de la base.
+# Ese .env fija COMPOSE_FILE=docker-compose.prod.yml, así que en el servidor
+# `docker compose ...` a secas usa este archivo.
+name: api_hacienda
+
+services:
+  app:
+    build: .
+    image: api-hacienda:prod
+    restart: unless-stopped
+    env_file: .env
+    mem_limit: 512m
+    ports:
+      # Solo loopback: para exponerlo, ponga delante un proxy inverso con TLS.
+      - '127.0.0.1:8888:8000'
+    volumes:
+      # Certificados .p12 y XML subidos (storage/app/legacy-files) y logs.
+      # Sin este volumen se pierden al recrear el contenedor.
+      - app-storage:/app/storage
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8000/up']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mariadb:11.8.9
+    restart: unless-stopped
+    environment:
+      TZ: America/Costa_Rica
+      # Solo se aplican al crear la base por primera vez (volumen vacío).
+      MARIADB_DATABASE: ${DB_DATABASE:?definir DB_DATABASE en .env}
+      MARIADB_USER: ${DB_USERNAME:?definir DB_USERNAME en .env}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?definir DB_PASSWORD en .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?definir DB_ROOT_PASSWORD en .env}
+      # Corre mariadb-upgrade si el volumen viene de una 11.x anterior.
+      MARIADB_AUTO_UPGRADE: '1'
+    volumes:
+      # Mismo nombre que en el compose de desarrollo (api_hacienda_mysql-data):
+      # un servidor que hoy corre ese compose conserva su base al cambiarse.
+      - mysql-data:/var/lib/mysql
+    # Sin `ports`: la base solo se ve dentro de la red del stack.
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  app-storage:
+  mysql-data:
