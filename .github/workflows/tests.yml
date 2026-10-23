@@ -37,3 +37,26 @@ jobs:
 
       - name: Run test suite (unit, feature y paridad golden-master)
         run: ./vendor/bin/pest --ci
+
+  # La imagen de producción construye y el compose de producción es válido
+  # con el .env de ejemplo (las contraseñas obligatorias, con valores dummy).
+  prod-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.prod.yml
+        run: |
+          cp .env.production.example .env
+          sed -i -e 's/^DB_PASSWORD=.*/DB_PASSWORD=ci/' -e 's/^DB_ROOT_PASSWORD=.*/DB_ROOT_PASSWORD=ci/' .env
+          docker compose config -q
+
+      - name: Build production image
+        run: docker compose build app
+
+      - name: Check PHP version and extensions
+        run: |
+          docker run --rm --entrypoint sh api-hacienda:prod -c '
+            php -r "exit(version_compare(PHP_VERSION, \"8.4.27\", \">=\") ? 0 : 1);" &&
+            for e in gd pdo_mysql dom openssl curl mbstring fileinfo; do php -m | grep -qix "$e" || { echo "falta $e"; exit 1; }; done'

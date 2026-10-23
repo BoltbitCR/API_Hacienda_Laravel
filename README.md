@@ -23,16 +23,6 @@ Toda la documentación está en la **[wiki](https://github.com/BoltbitCR/API_Hac
 
 Cada instalación sirve además su especificación OpenAPI en `/docs/api`.
 
-## Inicio rápido
-
-```bash
-cp .env.example .env
-docker compose up -d
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --seed
-```
-
-Antes de levantarlo, lea [Instalación](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Instalación): con Docker la conexión a la base de datos va en el `.env`.
 
 ## CRLibre y Factura Electrónica en Costa Rica
 
