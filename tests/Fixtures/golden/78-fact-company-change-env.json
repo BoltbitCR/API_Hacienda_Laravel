@@ -1,0 +1,24 @@
+{
+    "name": "fact-company-change-env",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "company_change_env",
+            "envProduccion": "true",
+            "iam": "goldenuser",
+            "sessionKey": "Y1BwUVpGeGt2ZGFTanA0RHo0MCtPVis0czN2dUYzR0VGclBtYkozZVR0eFpIUG1xbSt3UXZhWDhMdXJnVm93d0tpc2ZNTkdnL2J4T1pQRy9JMGxpY3c9PTo6gL4rWwHxua23FQhuIeI3hw=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":\"ok\"}"
+    }
+}
