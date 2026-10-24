@@ -4,8 +4,10 @@ namespace App\Services\Facturador;
 
 use App\Legacy\LegacyErrorCode;
 use App\Legacy\LegacyParams;
+use App\Legacy\LegacyResponse;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CompanyUser;
 use App\Models\CompanyUserSession;
 use App\Models\Consecutive;
 use App\Models\Document;
@@ -17,6 +19,7 @@ use App\Models\Terminal;
 use App\Services\Auth\CompanyUserAuthService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Handlers del módulo facturador, portados de facturadorCRLibre.php y
@@ -56,6 +59,19 @@ class FacturadorService
             'users_log_me_out' => fn (LegacyParams $p) => $this->companyLogout($p),
             'companny_users_getMyDetails' => fn (LegacyParams $p) => $this->companyMyDetails($p),
             'companny_users_get_my_details' => fn (LegacyParams $p) => $this->companyMyDetails($p),
+
+            // --- Usuarios de empresa y permisos ---
+            'companny_users_register' => fn (LegacyParams $p) => $this->registerCompanyUser($p),
+            'companny_users_recover_pwd' => fn (LegacyParams $p) => $this->recoverCompanyUserPwd($p),
+            // El legacy muere siempre: llama a companny_users_load() con los
+            // argumentos invertidos y un $idMasterUser sin definir.
+            'companny_users_update_profile' => fn () => LegacyResponse::plainDie(''),
+            'getUsersCompanny' => fn (LegacyParams $p) => $this->companyUsers($this->sessionCompanyId($p)),
+            // Muere siempre: el query pide rolCode/descripcion y la plantilla
+            // master_rol solo tiene idRol.
+            'getUserPermissionById' => fn () => LegacyResponse::plainDie(''),
+            'company_stag_users' => fn (LegacyParams $p) => $this->setCredentials($p, 'stag'),
+            'company_prod_users' => fn (LegacyParams $p) => $this->setCredentials($p, 'prod'),
 
             // --- Info de empresa (company access) ---
             'get_companny_information' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
@@ -232,6 +248,106 @@ class FacturadorService
             'country' => (string) $user->country,
             'status' => (string) $user->status,
         ];
+    }
+
+    // ---- Usuarios de empresa ----
+
+    /**
+     * Como el legacy, la empresa sale de la sesión del master (ignora el
+     * idMasterUser requerido). El alta sí ocurre, pero después el legacy
+     * muere en companny_users_loadByName() (argumentos invertidos) antes de
+     * iniciar la sesión del nuevo usuario: HTTP 200 con body vacío.
+     */
+    private function registerCompanyUser(LegacyParams $p): array|Response
+    {
+        $companyId = $this->sessionCompanyId($p);
+        $userName = (string) $p->get('userName', '');
+        $email = (string) $p->get('email', '');
+
+        $exists = CompanyUser::where('company_id', $companyId)
+            ->where(fn ($q) => $q->where('user_name', $userName)->orWhere('email', $email))
+            ->exists();
+        if ($exists) {
+            return ['code' => LegacyErrorCode::USERS_EXISTS, 'status' => 'usuario ya existe'];
+        }
+
+        CompanyUser::create([
+            'company_id' => $companyId,
+            'full_name' => (string) $p->get('fullName', ''),
+            'user_name' => $userName,
+            'email' => $email,
+            'about' => (string) $p->get('about', 'May all beings be at ease'),
+            'country' => (string) $p->get('country', 'crc'),
+            'status' => '1',
+            'legacy_timestamp' => time(),
+            'last_access' => time(),
+            'password' => $this->companyAuth->hash((string) $p->get('pwd', '')),
+            'avatar' => '0',
+            'settings' => (string) $p->get('settings', ''),
+        ]);
+
+        return LegacyResponse::plainDie('');
+    }
+
+    /**
+     * Usuario inexistente => ERROR_BAD_REQUEST. Si existe, el legacy muere en
+     * el UPDATE (concatena el hash sin comillas) antes de enviar el correo:
+     * la clave no cambia y el body sale vacío.
+     */
+    private function recoverCompanyUserPwd(LegacyParams $p): int|Response
+    {
+        $user = $this->companyAuth->loadByUserNameOrEmail((int) $p->get('idMasterUser'), (string) $p->get('userName', ''));
+
+        return $user === null ? LegacyErrorCode::BAD_REQUEST : LegacyResponse::plainDie('');
+    }
+
+    /**
+     * INNER JOIN del legacy: solo salen los usuarios cuya terminal (settings,
+     * texto) existe y tiene sucursal. Se cruza en PHP porque comparar texto
+     * con el id entero no es portable entre motores.
+     */
+    private function companyUsers(int $companyId): array|string
+    {
+        $terminals = Terminal::where('terminals.company_id', $companyId)
+            ->join('branches', 'terminals.branch_id', '=', 'branches.id')
+            ->get(['terminals.id', 'terminals.nombre_terminal', 'terminals.terminal', 'branches.nombre_sucursal', 'branches.sucursal'])
+            ->keyBy(fn ($t) => (string) $t->id);
+
+        $users = [];
+        foreach (CompanyUser::where('company_id', $companyId)->orderBy('id')->get() as $u) {
+            $t = $terminals->get((string) $u->settings);
+            if ($t === null) {
+                continue;
+            }
+
+            $users[] = (object) [
+                'idUser' => (string) $u->id, 'fullName' => $u->full_name, 'email' => $u->email,
+                'country' => $u->country, 'nombreTerminal' => $t->nombre_terminal, 'terminal' => $t->terminal,
+                'nombreSucursal' => $t->nombre_sucursal, 'sucursal' => $t->sucursal,
+            ];
+        }
+
+        return $users === [] ? LegacyErrorCode::DB_NO_RESULTS_FOUND : $users;
+    }
+
+    /**
+     * Divergencia deliberada: el legacy de prod escribe el PIN en stagPin y
+     * deja prodPin sin tocar. Aquí cada ambiente recibe el suyo; la
+     * respuesta ('ok') es la misma.
+     */
+    private function setCredentials(LegacyParams $p, string $environment): string
+    {
+        HaciendaCredential::updateOrCreate(
+            ['company_id' => $this->sessionCompanyId($p), 'environment' => $environment],
+            [
+                'username' => (string) $p->get('userName'),
+                'password' => (string) $p->get('password'),
+                'p12_download_code' => (string) $p->get('downloadCode'),
+                'pin' => (string) $p->get('pinCerti'),
+            ],
+        );
+
+        return 'ok';
     }
 
     // ---- Info de empresa ----

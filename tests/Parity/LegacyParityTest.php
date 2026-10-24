@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\CompanyUserSession;
@@ -7,6 +8,7 @@ use App\Models\HaciendaCredential;
 use App\Models\LegacySession;
 use App\Models\Receiver;
 use App\Models\StoredFile;
+use App\Models\Terminal;
 use App\Models\User;
 use Database\Seeders\CatalogSeeder;
 use Illuminate\Http\UploadedFile;
@@ -112,6 +114,15 @@ const IMPLEMENTED = [
     'fact-get-stag-companny-credentials',
     'fact-get-prod-companny-credentials',
     'fact-company-change-env',
+    'fact-companny-users-register',
+    'fact-companny-users-register-duplicate',
+    'fact-get-users-companny',
+    'fact-get-user-permission-by-id',
+    'fact-companny-users-recover-pwd-unknown',
+    'fact-companny-users-recover-pwd',
+    'fact-companny-users-update-profile',
+    'fact-company-stag-users',
+    'fact-company-prod-users',
 ];
 
 /** Fixtures que requieren los catálogos MH sembrados. */
@@ -136,6 +147,21 @@ const FACTURADOR_CREDENTIALS = [
     'fact-get-stag-companny-credentials', 'fact-get-prod-companny-credentials',
     'fact-company-change-env',
 ];
+
+/**
+ * Usuarios de empresa y permisos. Cuatro rutas mueren en el legacy (body
+ * vacío): register tras crear al usuario, recover_pwd con un usuario que
+ * existe, update_profile y getUserPermissionById siempre.
+ */
+const FACTURADOR_USERS = [
+    'fact-companny-users-register', 'fact-companny-users-register-duplicate',
+    'fact-get-users-companny', 'fact-get-user-permission-by-id',
+    'fact-companny-users-recover-pwd-unknown', 'fact-companny-users-recover-pwd',
+    'fact-companny-users-update-profile', 'fact-company-stag-users', 'fact-company-prod-users',
+];
+
+/** Fixtures que corren sobre la empresa del goldenuser. */
+const FACTURADOR_COMPANY = [...FACTURADOR_WRITES, ...FACTURADOR_CREDENTIALS, ...FACTURADOR_USERS];
 
 /**
  * Fixtures que golpean los endpoints reales de Hacienda (sandbox). Solo se
@@ -233,8 +259,7 @@ function seedFixtureState(GoldenFixture $f): void
         'users-login-email', 'users-get-my-details', 'users-confirm-session',
         'users-bad-session', 'users-logout', 'upload-cert',
         'xmltobase64-good-code', 'firmar-fe', 'firmar-bad-pin',
-    ], true) || in_array($f->name, FACTURADOR_WRITES, true)
-        || in_array($f->name, FACTURADOR_CREDENTIALS, true);
+    ], true) || in_array($f->name, FACTURADOR_COMPANY, true);
 
     if (! $needsGoldenUser) {
         return;
@@ -267,19 +292,35 @@ function seedFixtureState(GoldenFixture $f): void
 
     // Empresa del master user (mismo id, como en el legacy). En las rutas de
     // acceso company, la sessionKey capturada es la del company-user.
-    if (in_array($f->name, FACTURADOR_WRITES, true) || in_array($f->name, FACTURADOR_CREDENTIALS, true)) {
+    if (in_array($f->name, FACTURADOR_COMPANY, true)) {
         $company = Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
 
-        if (isset($f->params['idMasterUser'])) {
+        if (isset($f->params['idMasterUser']) || in_array($f->name, FACTURADOR_USERS, true)) {
             $companyUser = CompanyUser::create([
                 'company_id' => $company->id, 'user_name' => 'goldencajero', 'email' => 'cajero@example.com',
             ]);
-            CompanyUserSession::create([
-                'company_id' => $company->id,
-                'company_user_id' => $companyUser->id,
-                'session_key' => $sessionKey,
-                'ip' => '127.0.0.1',
-                'last_access' => time(),
+            // recover_pwd es open access: viaja sin sessionKey.
+            if ($sessionKey !== null) {
+                CompanyUserSession::create([
+                    'company_id' => $company->id,
+                    'company_user_id' => $companyUser->id,
+                    'session_key' => $sessionKey,
+                    'ip' => '127.0.0.1',
+                    'last_access' => time(),
+                ]);
+            }
+        }
+
+        // goldenvendedor (id 2) ya registrado y ligado a la terminal 1.
+        if (in_array($f->name, ['fact-companny-users-register-duplicate', 'fact-get-users-companny'], true)) {
+            $branch = Branch::create(['company_id' => $company->id, 'nombre_sucursal' => 'Sucursal Golden', 'sucursal' => '002']);
+            $terminal = Terminal::create([
+                'company_id' => $company->id, 'branch_id' => $branch->id,
+                'nombre_terminal' => 'Caja Golden', 'terminal' => '00002',
+            ]);
+            CompanyUser::create([
+                'company_id' => $company->id, 'full_name' => 'Golden Vendedor', 'user_name' => 'goldenvendedor',
+                'email' => 'vendedor@example.com', 'country' => 'crc', 'settings' => (string) $terminal->id,
             ]);
         }
 
