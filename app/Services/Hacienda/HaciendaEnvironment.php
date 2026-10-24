@@ -18,6 +18,15 @@ class HaciendaEnvironment
         };
     }
 
+    public function comprobantesUrl(string $clientId): ?string
+    {
+        return match ($clientId) {
+            'api-stag' => config('hacienda.endpoints.stag.comprobantes'),
+            'api-prod' => config('hacienda.endpoints.prod.comprobantes'),
+            default => null,
+        };
+    }
+
     public function idpUrl(string $clientId): ?string
     {
         return match ($clientId) {

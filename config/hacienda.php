@@ -22,11 +22,13 @@ return [
     'endpoints' => [
         'stag' => [
             'reception' => env('HACIENDA_STAG_RECEPTION', 'https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'),
+            'comprobantes' => env('HACIENDA_STAG_COMPROBANTES', 'https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/comprobantes'),
             'idp' => env('HACIENDA_STAG_IDP', 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'),
             'client_id' => 'api-stag',
         ],
         'prod' => [
             'reception' => env('HACIENDA_PROD_RECEPTION', 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'),
+            'comprobantes' => env('HACIENDA_PROD_COMPROBANTES', 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/comprobantes'),
             'idp' => env('HACIENDA_PROD_IDP', 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token'),
             'client_id' => 'api-prod',
         ],

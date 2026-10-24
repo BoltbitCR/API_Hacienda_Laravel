@@ -71,6 +71,11 @@ Route::prefix('v1')->group(function () {
         // instalación no emitió (los que RECIBE la empresa de terceros).
         Route::middleware('throttle:60,1')
             ->get('hacienda/status', [DocumentController::class, 'statusByClave']);
+
+        // Comprobantes que Hacienda tiene del emisor (todas las páginas):
+        // permite retomar la numeración de otro sistema.
+        Route::middleware('throttle:10,1')
+            ->get('hacienda/comprobantes', [DocumentController::class, 'comprobantes']);
         Route::middleware('throttle:60,1')->post('documents', [DocumentController::class, 'store']);
     });
 });
