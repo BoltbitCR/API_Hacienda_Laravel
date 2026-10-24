@@ -1,0 +1,25 @@
+{
+    "name": "fact-add-sucursal",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "addSucursales",
+            "numeroSucursal": "002",
+            "nombreSucursal": "Sucursal Golden",
+            "iam": "goldenuser",
+            "sessionKey": "L2hmVFJyMlk2SEJiaC9EZkR0K3J0MzdDYzljSnRSbEhodFRmRHZER24vSXBLTW9HK0plVlZLZHNLMFpZWGhyTVNHS01lQlZxelFFSmlNeUorK1o2MWc9PTo64rhQFQnL63XT4IsdlbYpiw=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":1}"
+    }
+}
