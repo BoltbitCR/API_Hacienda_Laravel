@@ -4,6 +4,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\CompanyUserSession;
+use App\Models\Consecutive;
 use App\Models\HaciendaCredential;
 use App\Models\LegacySession;
 use App\Models\Receiver;
@@ -123,6 +124,16 @@ const IMPLEMENTED = [
     'fact-companny-users-update-profile',
     'fact-company-stag-users',
     'fact-company-prod-users',
+    'fact-companny-update-tipo-cambio',
+    'fact-companny-update-tipo-cambio-same',
+    'fact-companny-update-location',
+    'fact-companny-update-information',
+    'fact-companny-get-my-info',
+    'fact-companny-add-master-consecutive',
+    'fact-companny-update-consecutive',
+    'fact-companny-update-consecutive-none',
+    'fact-companny-add-voucher',
+    'fact-companny-add-voucher-sin-receptor',
 ];
 
 /** Fixtures que requieren los catálogos MH sembrados. */
@@ -160,8 +171,20 @@ const FACTURADOR_USERS = [
     'fact-companny-users-update-profile', 'fact-company-stag-users', 'fact-company-prod-users',
 ];
 
+/**
+ * Datos de empresa, consecutivos y comprobantes. Las rutas company corren con
+ * la sesión de goldenvendedor (terminal 1); add_voucher sin idReceptor muere
+ * con body vacío porque el legacy lo concatena sin comillas.
+ */
+const FACTURADOR_COMPANY_DATA = [
+    'fact-companny-update-tipo-cambio', 'fact-companny-update-tipo-cambio-same',
+    'fact-companny-update-location', 'fact-companny-update-information', 'fact-companny-get-my-info',
+    'fact-companny-add-master-consecutive', 'fact-companny-update-consecutive',
+    'fact-companny-update-consecutive-none', 'fact-companny-add-voucher', 'fact-companny-add-voucher-sin-receptor',
+];
+
 /** Fixtures que corren sobre la empresa del goldenuser. */
-const FACTURADOR_COMPANY = [...FACTURADOR_WRITES, ...FACTURADOR_CREDENTIALS, ...FACTURADOR_USERS];
+const FACTURADOR_COMPANY = [...FACTURADOR_WRITES, ...FACTURADOR_CREDENTIALS, ...FACTURADOR_USERS, ...FACTURADOR_COMPANY_DATA];
 
 /**
  * Fixtures que golpean los endpoints reales de Hacienda (sandbox). Solo se
@@ -295,32 +318,51 @@ function seedFixtureState(GoldenFixture $f): void
     if (in_array($f->name, FACTURADOR_COMPANY, true)) {
         $company = Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
 
-        if (isset($f->params['idMasterUser']) || in_array($f->name, FACTURADOR_USERS, true)) {
+        $needsCompanyUsers = isset($f->params['idMasterUser'])
+            || in_array($f->name, [...FACTURADOR_USERS, ...FACTURADOR_COMPANY_DATA], true);
+        if ($needsCompanyUsers) {
             $companyUser = CompanyUser::create([
                 'company_id' => $company->id, 'user_name' => 'goldencajero', 'email' => 'cajero@example.com',
             ]);
-            // recover_pwd es open access: viaja sin sessionKey.
-            if ($sessionKey !== null) {
-                CompanyUserSession::create([
-                    'company_id' => $company->id,
-                    'company_user_id' => $companyUser->id,
-                    'session_key' => $sessionKey,
-                    'ip' => '127.0.0.1',
-                    'last_access' => time(),
-                ]);
-            }
         }
 
         // goldenvendedor (id 2) ya registrado y ligado a la terminal 1.
-        if (in_array($f->name, ['fact-companny-users-register-duplicate', 'fact-get-users-companny'], true)) {
+        $iam = $f->params['iam'] ?? null;
+        if ($iam === 'goldenvendedor' || in_array($f->name, ['fact-companny-users-register-duplicate', 'fact-get-users-companny'], true)) {
             $branch = Branch::create(['company_id' => $company->id, 'nombre_sucursal' => 'Sucursal Golden', 'sucursal' => '002']);
             $terminal = Terminal::create([
                 'company_id' => $company->id, 'branch_id' => $branch->id,
                 'nombre_terminal' => 'Caja Golden', 'terminal' => '00002',
             ]);
-            CompanyUser::create([
+            $vendedor = CompanyUser::create([
                 'company_id' => $company->id, 'full_name' => 'Golden Vendedor', 'user_name' => 'goldenvendedor',
                 'email' => 'vendedor@example.com', 'country' => 'crc', 'settings' => (string) $terminal->id,
+            ]);
+            if ($iam === 'goldenvendedor') {
+                $companyUser = $vendedor;
+            }
+        }
+
+        // La sesión es del company-user que viaja en iam (goldencajero si no
+        // viaja). recover_pwd es open access: viaja sin sessionKey.
+        if ($needsCompanyUsers && $sessionKey !== null) {
+            CompanyUserSession::create([
+                'company_id' => $company->id,
+                'company_user_id' => $companyUser->id,
+                'session_key' => $sessionKey,
+                'ip' => '127.0.0.1',
+                'last_access' => time(),
+            ]);
+        }
+
+        if ($f->name === 'fact-companny-update-tipo-cambio-same') {
+            $company->update(['tipo_cambio' => '540.25']);
+        }
+
+        if ($f->name === 'fact-companny-update-consecutive') {
+            Consecutive::create([
+                'company_id' => $company->id, 'env' => 'api-stag', 'tipo_comprobante' => 'FE',
+                'company_user_id' => $companyUser->id,
             ]);
         }
 

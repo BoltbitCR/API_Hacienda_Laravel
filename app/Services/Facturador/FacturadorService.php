@@ -78,6 +78,12 @@ class FacturadorService
             'get_companny_information_admin' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
             'company_get_env' => fn (LegacyParams $p) => $this->companyGetEnv((int) $p->get('idMasterUser')),
             'company_change_env' => fn (LegacyParams $p) => $this->companyChangeEnv($p),
+            // Las de master editan la empresa de la sesión; el legacy usaba el
+            // idMasterUser recibido y dejaba editar cualquier empresa.
+            'compannyUpdateTipoCambio' => fn (LegacyParams $p) => $this->updateTipoCambio($p),
+            'compannyUpdateLocation' => fn (LegacyParams $p) => $this->updateLocation($p),
+            'compannyUpdateInformation' => fn (LegacyParams $p) => $this->updateInformation($p),
+            'companny_getMyInfo' => fn (LegacyParams $p) => $this->companyUsers((int) $p->get('idMasterUser'), (string) $p->get('iam', '')),
 
             // --- Credenciales ATV ---
             // Las de master usan siempre la empresa de la sesión: el legacy
@@ -102,6 +108,9 @@ class FacturadorService
             // --- Comprobantes / consecutivos ---
             'get_vouchers' => fn (LegacyParams $p) => $this->vouchers((int) $p->get('idMasterUser'), (string) $p->get('env')),
             'companny_getMyConsecutive' => fn (LegacyParams $p) => $this->myConsecutive($p),
+            'companny_add_master_Consecutive' => fn (LegacyParams $p) => $this->addMasterConsecutives($p),
+            'companny_updateConsecutive' => fn (LegacyParams $p) => $this->incrementConsecutive($p),
+            'companny_add_voucher' => fn (LegacyParams $p) => $this->addVoucher($p),
 
             // --- Inventario ---
             'get_inventory' => fn (LegacyParams $p) => $this->inventory((int) $p->get('idMasterUser'), (string) $p->get('sucursal')),
@@ -304,9 +313,10 @@ class FacturadorService
     /**
      * INNER JOIN del legacy: solo salen los usuarios cuya terminal (settings,
      * texto) existe y tiene sucursal. Se cruza en PHP porque comparar texto
-     * con el id entero no es portable entre motores.
+     * con el id entero no es portable entre motores. Con $userName es
+     * companny_getMyInfo: el mismo SELECT filtrado por el usuario.
      */
-    private function companyUsers(int $companyId): array|string
+    private function companyUsers(int $companyId, ?string $userName = null): array|string
     {
         $terminals = Terminal::where('terminals.company_id', $companyId)
             ->join('branches', 'terminals.branch_id', '=', 'branches.id')
@@ -314,7 +324,12 @@ class FacturadorService
             ->keyBy(fn ($t) => (string) $t->id);
 
         $users = [];
-        foreach (CompanyUser::where('company_id', $companyId)->orderBy('id')->get() as $u) {
+        $q = CompanyUser::where('company_id', $companyId)->orderBy('id');
+        if ($userName !== null) {
+            $q->where('user_name', $userName);
+        }
+
+        foreach ($q->get() as $u) {
             $t = $terminals->get((string) $u->settings);
             if ($t === null) {
                 continue;
@@ -391,6 +406,65 @@ class FacturadorService
             ->update(['env' => $p->get('envProduccion') === 'true' ? 'api-prod' : 'api-stag']);
 
         return 'ok';
+    }
+
+    /**
+     * affected_rows de MySQL: escribir el mismo valor no cuenta y db_query()
+     * responde -200. Se compara a mano porque SQLite cuenta las filas que
+     * coinciden, no las que cambian.
+     */
+    private function updateTipoCambio(LegacyParams $p): int|string
+    {
+        return $this->updateCompany($p, ['tipo_cambio' => (string) $p->get('tipoCambio')]);
+    }
+
+    /** El legacy hace un UPDATE por campo y responde con el último (SENNAS). */
+    private function updateLocation(LegacyParams $p): int|string
+    {
+        $this->updateCompany($p, [
+            'id_provincia' => (string) $p->get('idProvincia'),
+            'id_canton' => (string) $p->get('idCanton'),
+            'id_distrito' => (string) $p->get('idDistrito'),
+            'id_barrio' => (string) $p->get('idBarrio'),
+        ]);
+
+        return $this->updateCompany($p, ['sennas' => (string) $p->get('sennas')]);
+    }
+
+    /** Siempre 1. codigoPais va al teléfono y al fax; los opcionales ausentes quedan vacíos. */
+    private function updateInformation(LegacyParams $p): int
+    {
+        $this->updateCompany($p, [
+            'nombre' => (string) $p->get('nombre'),
+            'nombre_comercial' => (string) $p->get('nombreComercial'),
+            'email' => (string) $p->get('email'),
+            'tel_cod_pais' => (string) $p->get('codigoPais'),
+            'fax_cod_pais' => (string) $p->get('codigoPais'),
+            'tel_numero' => (string) $p->get('telefono'),
+            'fax_numero' => (string) $p->get('fax'),
+            'tipo_cedula' => (string) $p->get('tipoCedula'),
+            'cedula' => (string) $p->get('cedula'),
+        ]);
+
+        return 1;
+    }
+
+    /** @param  array<string, string>  $values */
+    private function updateCompany(LegacyParams $p, array $values): int|string
+    {
+        $company = Company::find($this->sessionCompanyId($p));
+        if ($company === null) {
+            return LegacyErrorCode::DB_NO_RESULTS_FOUND;
+        }
+
+        $company->fill($values);
+        if (! $company->isDirty()) {
+            return LegacyErrorCode::DB_NO_RESULTS_FOUND;
+        }
+
+        $company->save();
+
+        return 1;
     }
 
     // ---- Credenciales ATV ----
@@ -500,9 +574,7 @@ class FacturadorService
 
         return $this->insertRow(fn () => Receiver::create([
             'company_id' => $companyId,
-            'company_user_id' => CompanyUserSession::where('company_id', $companyId)
-                ->where('session_key', (string) $p->get('sessionKey'))
-                ->value('company_user_id'),
+            'company_user_id' => $this->companyUserIdFromSession($p),
             'nombre_cliente' => (string) $p->get('nombreCliente'),
             'numero_cedula' => (string) $p->get('numeroCedula'),
             'tipo_cedula' => (string) $p->get('tipoCedula'),
@@ -557,6 +629,77 @@ class FacturadorService
             ->max('consecutives.numero_consecutivo') ?? 0;
 
         return [(object) ['consecutivo' => (string) $value]];
+    }
+
+    /**
+     * Los 14 contadores en cero (7 tipos x 2 ambientes) para el company-user
+     * idUser; responde affected_rows. Sin FK en el legacy: un idUser ajeno se
+     * acepta y los contadores quedan sin usuario.
+     */
+    private function addMasterConsecutives(LegacyParams $p): int|string
+    {
+        $companyId = $this->sessionCompanyId($p);
+        $companyUserId = CompanyUser::where('company_id', $companyId)->whereKey($p->get('idUser'))->value('id');
+
+        $rows = [];
+        foreach (['api-stag', 'api-prod'] as $env) {
+            foreach (['FE', 'NC', 'ND', 'TE', 'CCE', 'CPCE', 'RCEFE'] as $tipo) {
+                $rows[] = [
+                    'company_id' => $companyId, 'env' => $env, 'company_name' => '',
+                    'numero_consecutivo' => 0, 'tipo_comprobante' => $tipo, 'company_user_id' => $companyUserId,
+                ];
+            }
+        }
+
+        try {
+            Consecutive::insert($rows);
+        } catch (QueryException) {
+            return LegacyErrorCode::DB_ERROR;
+        }
+
+        return count($rows);
+    }
+
+    /** +1 a los contadores del company-user de la sesión; sin ninguno, -200. */
+    private function incrementConsecutive(LegacyParams $p): int|string
+    {
+        $companyId = (int) $p->get('idMasterUser');
+        $updated = Consecutive::where('company_id', $companyId)
+            ->where('company_user_id', $this->companyUserIdFromSession($p))
+            ->where('env', (string) $p->get('env'))
+            ->where('tipo_comprobante', (string) $p->get('tipoDocumento'))
+            ->increment('numero_consecutivo');
+
+        return $updated > 0 ? $updated : LegacyErrorCode::DB_NO_RESULTS_FOUND;
+    }
+
+    /**
+     * El legacy concatena idReceptor sin comillas: vacío o no numérico rompe
+     * el INSERT y muere con body vacío. Un receptor de otra empresa (o
+     * inexistente) se acepta sin ligarlo, como el legacy sin FK.
+     */
+    private function addVoucher(LegacyParams $p): int|string|Response
+    {
+        $idReceptor = (string) $p->get('idReceptor', '');
+        if (! ctype_digit($idReceptor)) {
+            return LegacyResponse::plainDie('');
+        }
+
+        $companyId = (int) $p->get('idMasterUser');
+
+        return $this->insertRow(fn () => Document::create([
+            'company_id' => $companyId,
+            'consecutivo' => (string) $p->get('consecutivo'),
+            'clave' => (string) $p->get('clave'),
+            'documento_referencia' => (string) $p->get('idComprobanteReferencia'),
+            'company_user_id' => $this->companyUserIdFromSession($p),
+            'tipo_documento' => (string) $p->get('tipoDocumento'),
+            'estado' => (string) $p->get('estado'),
+            'xml_enviado_base64' => (string) $p->get('xmlEnviadoBase64'),
+            'respuesta_mh_base64' => (string) $p->get('respuestaMHBase64'),
+            'receiver_id' => Receiver::where('company_id', $companyId)->whereKey($idReceptor)->value('id'),
+            'env' => (string) $p->get('env'),
+        ]));
     }
 
     // ---- Inventario ----
@@ -625,6 +768,14 @@ class FacturadorService
         }
 
         return $this->sessionCompanyId($p);
+    }
+
+    /** Company-user dueño de la sessionKey dentro de la empresa idMasterUser. */
+    private function companyUserIdFromSession(LegacyParams $p): ?int
+    {
+        return CompanyUserSession::where('company_id', (int) $p->get('idMasterUser'))
+            ->where('session_key', (string) $p->get('sessionKey'))
+            ->value('company_user_id');
     }
 
     /** El master user opera sobre su propia empresa (company_id == user id). */
