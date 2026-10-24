@@ -1,6 +1,10 @@
 <?php
 
+use App\Models\Company;
+use App\Models\CompanyUser;
+use App\Models\CompanyUserSession;
 use App\Models\LegacySession;
+use App\Models\Receiver;
 use App\Models\StoredFile;
 use App\Models\User;
 use Database\Seeders\CatalogSeeder;
@@ -97,12 +101,23 @@ const IMPLEMENTED = [
     'fact-type-of-id',
     'fact-location-info',
     'fact-cantons-missing-param',
+    'fact-add-sucursal',
+    'fact-add-terminal',
+    'fact-add-receptor',
+    'fact-delete-receptor',
+    'fact-add-producto',
 ];
 
 /** Fixtures que requieren los catálogos MH sembrados. */
 const NEEDS_CATALOGS = [
     'fact-provinces', 'fact-cantons', 'fact-districts', 'fact-neighborhoods',
     'fact-type-of-id', 'fact-location-info',
+];
+
+/** Rutas de escritura del facturador: requieren la empresa del goldenuser. */
+const FACTURADOR_WRITES = [
+    'fact-add-sucursal', 'fact-add-terminal', 'fact-add-receptor',
+    'fact-delete-receptor', 'fact-add-producto',
 ];
 
 /**
@@ -201,7 +216,7 @@ function seedFixtureState(GoldenFixture $f): void
         'users-login-email', 'users-get-my-details', 'users-confirm-session',
         'users-bad-session', 'users-logout', 'upload-cert',
         'xmltobase64-good-code', 'firmar-fe', 'firmar-bad-pin',
-    ], true);
+    ], true) || in_array($f->name, FACTURADOR_WRITES, true);
 
     if (! $needsGoldenUser) {
         return;
@@ -230,6 +245,29 @@ function seedFixtureState(GoldenFixture $f): void
             'ip' => '127.0.0.1',
             'last_access' => time(),
         ]);
+    }
+
+    // Empresa del master user (mismo id, como en el legacy). En las rutas de
+    // acceso company, la sessionKey capturada es la del company-user.
+    if (in_array($f->name, FACTURADOR_WRITES, true)) {
+        $company = Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
+
+        if (isset($f->params['idMasterUser'])) {
+            $companyUser = CompanyUser::create([
+                'company_id' => $company->id, 'user_name' => 'goldencajero', 'email' => 'cajero@example.com',
+            ]);
+            CompanyUserSession::create([
+                'company_id' => $company->id,
+                'company_user_id' => $companyUser->id,
+                'session_key' => $sessionKey,
+                'ip' => '127.0.0.1',
+                'last_access' => time(),
+            ]);
+        }
+
+        if ($f->name === 'fact-delete-receptor') {
+            Receiver::create(['id' => $f->params['idReceptor'], 'company_id' => $company->id]);
+        }
     }
 
     // El p12 de prueba registrado con el downloadCode del request capturado.

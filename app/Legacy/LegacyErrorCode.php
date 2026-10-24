@@ -19,6 +19,12 @@ final class LegacyErrorCode
 
     public const USERS_EXISTS = '-304';
 
+    /** ERROR_DB_NO_RESULTS_FOUND de legacy/api/modules/db: query sin filas afectadas. */
+    public const DB_NO_RESULTS_FOUND = '-200';
+
+    /** ERROR_DB_ERROR de legacy/api/modules/db: la BD rechazó la query. */
+    public const DB_ERROR = '-201';
+
     /** ERROR_BAD_REQUEST del legacy (int -1): action inexistente en el módulo. */
     public const BAD_REQUEST = -1;
 
