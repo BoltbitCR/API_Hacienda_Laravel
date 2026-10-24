@@ -16,6 +16,10 @@ class LegacyApiController
 
     public function __invoke(Request $request): Response
     {
+        // Se decide en cada request (no al registrar la ruta) para que el
+        // interruptor funcione aunque las rutas estén cacheadas.
+        abort_unless(config('hacienda.legacy.enabled'), 404);
+
         try {
             $params = LegacyParams::fromRequest($request);
             $response = $this->dispatcher->dispatch($params);

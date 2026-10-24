@@ -62,12 +62,15 @@ return [
     |--------------------------------------------------------------------------
     | Compatibilidad legacy
     |--------------------------------------------------------------------------
+    | enabled: el endpoint /api.php solo responde si se activa de forma
+    | explícita; apagado (default) devuelve 404.
     | open_endpoints: si true (default, comportamiento histórico) los
     | endpoints de facturación (genXML, firmar, send, token…) no requieren
     | autenticación propia del API.
     */
 
     'legacy' => [
+        'enabled' => (bool) env('LEGACY_API_ENABLED', false),
         'open_endpoints' => env('LEGACY_OPEN_ENDPOINTS', true),
         'crypto_key' => env('LEGACY_CRYPTO_KEY', ''),
         // Vida de sesión legacy en segundos (variable sessionLifetime del
