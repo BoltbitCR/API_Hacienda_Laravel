@@ -3,6 +3,7 @@
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\CompanyUserSession;
+use App\Models\HaciendaCredential;
 use App\Models\LegacySession;
 use App\Models\Receiver;
 use App\Models\StoredFile;
@@ -106,6 +107,11 @@ const IMPLEMENTED = [
     'fact-add-receptor',
     'fact-delete-receptor',
     'fact-add-producto',
+    'fact-get-stag-credentials',
+    'fact-get-prod-credentials',
+    'fact-get-stag-companny-credentials',
+    'fact-get-prod-companny-credentials',
+    'fact-company-change-env',
 ];
 
 /** Fixtures que requieren los catálogos MH sembrados. */
@@ -118,6 +124,17 @@ const NEEDS_CATALOGS = [
 const FACTURADOR_WRITES = [
     'fact-add-sucursal', 'fact-add-terminal', 'fact-add-receptor',
     'fact-delete-receptor', 'fact-add-producto',
+];
+
+/**
+ * Credenciales ATV y ambiente: leen la plantilla que copy_master_tables
+ * inserta en <id>_master_config_companny. La contraseña de prod sale
+ * truncada porque el legacy interpola "$DcOP" dentro de comillas dobles.
+ */
+const FACTURADOR_CREDENTIALS = [
+    'fact-get-stag-credentials', 'fact-get-prod-credentials',
+    'fact-get-stag-companny-credentials', 'fact-get-prod-companny-credentials',
+    'fact-company-change-env',
 ];
 
 /**
@@ -216,7 +233,8 @@ function seedFixtureState(GoldenFixture $f): void
         'users-login-email', 'users-get-my-details', 'users-confirm-session',
         'users-bad-session', 'users-logout', 'upload-cert',
         'xmltobase64-good-code', 'firmar-fe', 'firmar-bad-pin',
-    ], true) || in_array($f->name, FACTURADOR_WRITES, true);
+    ], true) || in_array($f->name, FACTURADOR_WRITES, true)
+        || in_array($f->name, FACTURADOR_CREDENTIALS, true);
 
     if (! $needsGoldenUser) {
         return;
@@ -249,7 +267,7 @@ function seedFixtureState(GoldenFixture $f): void
 
     // Empresa del master user (mismo id, como en el legacy). En las rutas de
     // acceso company, la sessionKey capturada es la del company-user.
-    if (in_array($f->name, FACTURADOR_WRITES, true)) {
+    if (in_array($f->name, FACTURADOR_WRITES, true) || in_array($f->name, FACTURADOR_CREDENTIALS, true)) {
         $company = Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
 
         if (isset($f->params['idMasterUser'])) {
@@ -263,6 +281,16 @@ function seedFixtureState(GoldenFixture $f): void
                 'ip' => '127.0.0.1',
                 'last_access' => time(),
             ]);
+        }
+
+        if (in_array($f->name, FACTURADOR_CREDENTIALS, true)) {
+            foreach (['stag' => '1PdeUpreble', 'prod' => 'N&@4+p[H-e[+#@9'] as $env => $password) {
+                HaciendaCredential::create([
+                    'company_id' => $company->id, 'environment' => $env,
+                    'username' => 'cpf-07-0232-0717@stag.comprobanteselectronicos.go.cr',
+                    'password' => $password, 'p12_download_code' => '', 'pin' => '1994',
+                ]);
+            }
         }
 
         if ($f->name === 'fact-delete-receptor') {

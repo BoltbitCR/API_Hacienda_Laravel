@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\CompanyUserSession;
 use App\Models\Consecutive;
 use App\Models\Document;
+use App\Models\HaciendaCredential;
 use App\Models\LegacySession;
 use App\Models\Product;
 use App\Models\Receiver;
@@ -60,6 +61,15 @@ class FacturadorService
             'get_companny_information' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
             'get_companny_information_admin' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
             'company_get_env' => fn (LegacyParams $p) => $this->companyGetEnv((int) $p->get('idMasterUser')),
+            'company_change_env' => fn (LegacyParams $p) => $this->companyChangeEnv($p),
+
+            // --- Credenciales ATV ---
+            // Las de master usan siempre la empresa de la sesión: el legacy
+            // ignora el idMasterUser que exige get_prod_credentials.
+            'get_stag_credentials' => fn (LegacyParams $p) => $this->credentials($this->sessionCompanyId($p), 'stag'),
+            'get_prod_credentials' => fn (LegacyParams $p) => $this->credentials($this->sessionCompanyId($p), 'prod'),
+            'get_stag_companny_credentials' => fn (LegacyParams $p) => $this->credentials((int) $p->get('idMasterUser'), 'stag'),
+            'get_prod_companny_credentials' => fn (LegacyParams $p) => $this->credentials((int) $p->get('idMasterUser'), 'prod'),
 
             // --- Sucursales / terminales ---
             'getSucursales' => fn (LegacyParams $p) => $this->branches($p),
@@ -256,6 +266,38 @@ class FacturadorService
         $env = Company::where('id', $companyId)->value('env');
 
         return [(object) ['env' => (string) $env]];
+    }
+
+    /** Igual que el legacy: cualquier valor distinto de 'true' pasa a staging, y siempre responde 'ok'. */
+    private function companyChangeEnv(LegacyParams $p): string
+    {
+        Company::whereKey($this->sessionCompanyId($p))
+            ->update(['env' => $p->get('envProduccion') === 'true' ? 'api-prod' : 'api-stag']);
+
+        return 'ok';
+    }
+
+    // ---- Credenciales ATV ----
+
+    /**
+     * Shape del SELECT `value` sobre el EAV legacy: usuario, contraseña,
+     * código del .p12 y PIN, en el orden de la plantilla. Un campo null es una
+     * fila que no existía en el EAV (así lo migra MigrateLegacyData) y no sale.
+     */
+    private function credentials(int $companyId, string $environment): array|string
+    {
+        $cred = HaciendaCredential::where('company_id', $companyId)->where('environment', $environment)->first();
+
+        $values = $cred === null ? [] : array_filter(
+            [$cred->username, $cred->password, $cred->p12_download_code, $cred->pin],
+            fn ($v) => $v !== null,
+        );
+
+        if ($values === []) {
+            return LegacyErrorCode::DB_NO_RESULTS_FOUND;
+        }
+
+        return array_map(fn ($v) => (object) ['value' => (string) $v], array_values($values));
     }
 
     // ---- Sucursales / terminales ----
@@ -466,9 +508,12 @@ class FacturadorService
             return $id;
         }
 
-        // El master user opera sobre su propia empresa (company_id == user id).
-        $sessionKey = (string) $p->get('sessionKey', '');
+        return $this->sessionCompanyId($p);
+    }
 
-        return (int) LegacySession::where('session_key', $sessionKey)->value('user_id');
+    /** El master user opera sobre su propia empresa (company_id == user id). */
+    private function sessionCompanyId(LegacyParams $p): int
+    {
+        return (int) LegacySession::where('session_key', (string) $p->get('sessionKey', ''))->value('user_id');
     }
 }
