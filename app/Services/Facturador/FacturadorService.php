@@ -88,7 +88,9 @@ class FacturadorService
 
             // --- Info de empresa (company access) ---
             'get_companny_information' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
-            'get_companny_information_admin' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
+            // Ruta de master: el legacy leía el idMasterUser recibido (cualquier
+            // empresa); se usa la de la sesión, como el resto de las de master.
+            'get_companny_information_admin' => fn (LegacyParams $p) => $this->companyInformation($this->sessionCompanyId($p)),
             'company_get_env' => fn (LegacyParams $p) => $this->companyGetEnv((int) $p->get('idMasterUser')),
             'company_change_env' => fn (LegacyParams $p) => $this->companyChangeEnv($p),
 
@@ -544,7 +546,7 @@ class FacturadorService
 
     private function branches(LegacyParams $p): array
     {
-        $companyId = $this->resolveCompanyId($p);
+        $companyId = $this->sessionCompanyId($p);
 
         return Branch::where('company_id', $companyId)
             ->get()
@@ -557,7 +559,7 @@ class FacturadorService
 
     private function terminals(LegacyParams $p): array
     {
-        $companyId = $this->resolveCompanyId($p);
+        $companyId = $this->sessionCompanyId($p);
         $q = Terminal::where('terminals.company_id', $companyId)
             ->join('branches', 'terminals.branch_id', '=', 'branches.id');
 
@@ -574,7 +576,7 @@ class FacturadorService
     private function addBranch(LegacyParams $p): int|string
     {
         return $this->insertRow(fn () => Branch::create([
-            'company_id' => $this->resolveCompanyId($p),
+            'company_id' => $this->sessionCompanyId($p),
             'nombre_sucursal' => (string) $p->get('nombreSucursal'),
             'sucursal' => (string) $p->get('numeroSucursal'),
         ]));
@@ -582,7 +584,7 @@ class FacturadorService
 
     private function addTerminal(LegacyParams $p): int|string
     {
-        $companyId = $this->resolveCompanyId($p);
+        $companyId = $this->sessionCompanyId($p);
 
         return $this->insertRow(fn () => Terminal::create([
             'company_id' => $companyId,
@@ -644,7 +646,7 @@ class FacturadorService
     /** Borrado lógico. Como affected_rows de MySQL, un receptor ya inactivo no cuenta. */
     private function deleteReceiver(LegacyParams $p): int|string
     {
-        $updated = Receiver::where('company_id', $this->resolveCompanyId($p))
+        $updated = Receiver::where('company_id', $this->sessionCompanyId($p))
             ->whereKey($p->get('idReceptor'))
             ->where('estado_cliente', '!=', '0')
             ->update(['estado_cliente' => '0']);
@@ -808,16 +810,6 @@ class FacturadorService
         }
 
         return 1;
-    }
-
-    private function resolveCompanyId(LegacyParams $p): int
-    {
-        $id = (int) $p->get('idMasterUser', 0);
-        if ($id > 0) {
-            return $id;
-        }
-
-        return $this->sessionCompanyId($p);
     }
 
     /** Company-user dueño de la sessionKey dentro de la empresa idMasterUser. */
