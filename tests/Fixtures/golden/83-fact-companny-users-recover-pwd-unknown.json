@@ -1,0 +1,23 @@
+{
+    "name": "fact-companny-users-recover-pwd-unknown",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "companny_users_recover_pwd",
+            "userName": "nadie",
+            "idMasterUser": "1"
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":-1}"
+    }
+}

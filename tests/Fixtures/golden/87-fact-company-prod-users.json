@@ -1,0 +1,27 @@
+{
+    "name": "fact-company-prod-users",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "company_prod_users",
+            "userName": "cpj-3-101-000000@prod.comprobanteselectronicos.go.cr",
+            "password": "ClaveProd1",
+            "pinCerti": "8765",
+            "downloadCode": "codigo-prod",
+            "iam": "goldenuser",
+            "sessionKey": "U212SHVBOTRyVCtiNUFaSEgySXRUa2F2WU9NR29kM241YytFSnZIcVovMUFmcVVYZEVuNElDWVdqR1d6Q0xTeDhJK0xBeEFZUGpYVkkraVRkTEJGVnc9PTo6siNTLepyKKESdufWxdDYlA=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":\"ok\"}"
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "name": "fact-get-user-permission-by-id",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "getUserPermissionById",
+            "iam": "goldenuser",
+            "sessionKey": "U212SHVBOTRyVCtiNUFaSEgySXRUa2F2WU9NR29kM241YytFSnZIcVovMUFmcVVYZEVuNElDWVdqR1d6Q0xTeDhJK0xBeEFZUGpYVkkraVRkTEJGVnc9PTo6siNTLepyKKESdufWxdDYlA=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "body": ""
+    }
+}

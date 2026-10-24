@@ -109,4 +109,41 @@ foreach ($credentialCases as $case) {
     saveFixture($outDir, $seq++, $case, $resp);
 }
 
+/* --- Usuarios de empresa y permisos. goldenvendedor queda ligado a la
+ *     terminal 1 (settings) para que getUsersCompanny tenga qué listar; las
+ *     escrituras de credenciales van al final. --- */
+
+$vendedor = ['w' => 'facturador', 'r' => 'companny_users_register', 'fullName' => 'Golden Vendedor',
+    'userName' => 'goldenvendedor', 'email' => 'vendedor@example.com', 'country' => 'crc', 'pwd' => $pwd,
+    'settings' => '1', 'idMasterUser' => $idMasterUser] + $master;
+
+$userCases = [
+    ['name' => 'fact-companny-users-register', 'compare' => 'exact', 'params' => $vendedor],
+    ['name' => 'fact-companny-users-register-duplicate', 'compare' => 'exact', 'params' => $vendedor],
+    ['name' => 'fact-get-users-companny', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'getUsersCompanny'] + $master],
+    ['name' => 'fact-get-user-permission-by-id', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'getUserPermissionById'] + $master],
+    ['name' => 'fact-companny-users-recover-pwd-unknown', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_users_recover_pwd', 'userName' => 'nadie',
+                  'idMasterUser' => $idMasterUser]],
+    ['name' => 'fact-companny-users-recover-pwd', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_users_recover_pwd', 'userName' => 'goldencajero',
+                  'idMasterUser' => $idMasterUser]],
+    ['name' => 'fact-companny-users-update-profile', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_users_update_profile', 'fullName' => 'Cajero Renombrado',
+                  'userName' => 'goldencajero', 'email' => 'cajero@example.com'] + $company],
+    ['name' => 'fact-company-stag-users', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'company_stag_users', 'userName' => 'cpj-3-101-000000@stag.comprobanteselectronicos.go.cr',
+                  'password' => 'ClaveStag1', 'pinCerti' => '4321', 'downloadCode' => 'codigo-stag'] + $master],
+    ['name' => 'fact-company-prod-users', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'company_prod_users', 'userName' => 'cpj-3-101-000000@prod.comprobanteselectronicos.go.cr',
+                  'password' => 'ClaveProd1', 'pinCerti' => '8765', 'downloadCode' => 'codigo-prod'] + $master],
+];
+
+foreach ($userCases as $case) {
+    $resp = callApi($baseUrl, $case);
+    saveFixture($outDir, $seq++, $case, $resp);
+}
+
 echo "\nListo.\n";

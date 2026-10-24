@@ -1,0 +1,23 @@
+{
+    "name": "fact-get-users-companny",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "getUsersCompanny",
+            "iam": "goldenuser",
+            "sessionKey": "U212SHVBOTRyVCtiNUFaSEgySXRUa2F2WU9NR29kM241YytFSnZIcVovMUFmcVVYZEVuNElDWVdqR1d6Q0xTeDhJK0xBeEFZUGpYVkkraVRkTEJGVnc9PTo6siNTLepyKKESdufWxdDYlA=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":[{\"idUser\":\"2\",\"fullName\":\"Golden Vendedor\",\"email\":\"vendedor@example.com\",\"country\":\"crc\",\"nombreTerminal\":\"Caja Golden\",\"terminal\":\"00002\",\"nombreSucursal\":\"Sucursal Golden\",\"sucursal\":\"002\"}]}"
+    }
+}
