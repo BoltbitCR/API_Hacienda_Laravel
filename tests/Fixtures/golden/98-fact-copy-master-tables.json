@@ -1,0 +1,23 @@
+{
+    "name": "fact-copy-master-tables",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "copy_master_tables",
+            "iam": "goldencopia",
+            "sessionKey": "SzlpWGJXSXVteVA4YTlDbFEycUlWZG1SU09LN1FlY25zQU1JS3Q2Ym9JVWVRUVJtRXphakxBdUNXM0NQbGYyamdGd1hxVGdRTU10dXNzS0JnbWxqanc9PTo6dIEZ6utQCjv94fvI/jLxFg=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":[\"master_logs\",\"master_config_companny\",\"master_permission\",\"master_companyusers\",\"master_receiver\",\"master_transmitter\",\"master_emisores\",\"master_users\",\"master_vouchers\",\"master_terminales\",\"master_claves\",\"master_receptores\",\"master_keys\",\"master_inventario\",\"master_certi\",\"master_sessions\",\"master_comprobantes\",\"master_sucursales\",\"master_sqlupgrade\",\"master_inventary_sucursal_001\",\"master_consecutive\",\"master_rol\",\"master_certificate\"]}"
+    }
+}
