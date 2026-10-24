@@ -1,0 +1,32 @@
+{
+    "name": "fact-companny-add-voucher",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "companny_add_voucher",
+            "clave": "55555555555555555555555555555555555555555555555555",
+            "consecutivo": "00100001010000000001",
+            "estado": "aceptado",
+            "xmlEnviadoBase64": "PHhtbC8+",
+            "tipoDocumento": "FE",
+            "respuestaMHBase64": "PHJlc3B1ZXN0YS8+",
+            "env": "api-stag",
+            "idReceptor": "1",
+            "idMasterUser": "1",
+            "iam": "goldenvendedor",
+            "sessionKey": "$2y$10$xKcGNILVbmkuFVXm9CNpduc8JBS69X30r73BKCnyKGfXFpj4I5tRG"
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":1}"
+    }
+}

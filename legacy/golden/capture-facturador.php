@@ -146,4 +146,55 @@ foreach ($userCases as $case) {
     saveFixture($outDir, $seq++, $case, $resp);
 }
 
+/* --- Datos de empresa, consecutivos y comprobantes. goldenvendedor (id 2,
+ *     terminal 1) inicia sesión para las rutas company; goldencajero no
+ *     tiene terminal ni consecutivos. --- */
+
+$vendedorLogin = callApi($baseUrl, ['params' => ['w' => 'facturador', 'r' => 'companny_users_logMeIn',
+    'idMasterUser' => $idMasterUser, 'userName' => 'goldenvendedor', 'pwd' => $pwd]]);
+$companyVendedor = ['idMasterUser' => $idMasterUser, 'iam' => 'goldenvendedor',
+    'sessionKey' => (string) extractKey($vendedorLogin['body'], 'sessionKey')];
+
+$voucher = ['w' => 'facturador', 'r' => 'companny_add_voucher', 'clave' => str_repeat('5', 50),
+    'consecutivo' => '00100001010000000001', 'estado' => 'aceptado', 'xmlEnviadoBase64' => 'PHhtbC8+',
+    'tipoDocumento' => 'FE', 'respuestaMHBase64' => 'PHJlc3B1ZXN0YS8+', 'env' => 'api-stag'];
+
+$companyCases = [
+    ['name' => 'fact-companny-update-tipo-cambio', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'compannyUpdateTipoCambio', 'idMasterUser' => $idMasterUser,
+                  'tipoCambio' => '540.25'] + $master],
+    ['name' => 'fact-companny-update-tipo-cambio-same', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'compannyUpdateTipoCambio', 'idMasterUser' => $idMasterUser,
+                  'tipoCambio' => '540.25'] + $master],
+    ['name' => 'fact-companny-update-location', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'compannyUpdateLocation', 'idMasterUser' => $idMasterUser,
+                  'idProvincia' => '2', 'idCanton' => '01', 'idDistrito' => '01', 'idBarrio' => '01',
+                  'sennas' => 'Costado norte de la iglesia'] + $master],
+    ['name' => 'fact-companny-update-information', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'compannyUpdateInformation', 'idMasterUser' => $idMasterUser,
+                  'nombre' => 'Golden S.A.', 'nombreComercial' => 'Golden', 'email' => 'empresa@example.com',
+                  'codigoPais' => '506', 'telefono' => '22223333', 'fax' => '22224444', 'tipoCedula' => '02',
+                  'cedula' => '3101123456'] + $master],
+    ['name' => 'fact-companny-get-my-info', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_getMyInfo'] + $companyVendedor],
+    ['name' => 'fact-companny-add-master-consecutive', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_add_master_Consecutive', 'idMasterUser' => $idMasterUser,
+                  'idUser' => '2'] + $master],
+    ['name' => 'fact-companny-update-consecutive', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_updateConsecutive', 'tipoDocumento' => 'FE',
+                  'env' => 'api-stag'] + $companyVendedor],
+    ['name' => 'fact-companny-update-consecutive-none', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'companny_updateConsecutive', 'tipoDocumento' => 'FE',
+                  'env' => 'api-stag'] + $company],
+    ['name' => 'fact-companny-add-voucher', 'compare' => 'exact',
+     'params' => $voucher + ['idReceptor' => '1'] + $companyVendedor],
+    ['name' => 'fact-companny-add-voucher-sin-receptor', 'compare' => 'exact',
+     'params' => $voucher + $companyVendedor],
+];
+
+foreach ($companyCases as $case) {
+    $resp = callApi($baseUrl, $case);
+    saveFixture($outDir, $seq++, $case, $resp);
+}
+
 echo "\nListo.\n";

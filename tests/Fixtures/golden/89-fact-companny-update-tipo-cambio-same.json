@@ -1,0 +1,25 @@
+{
+    "name": "fact-companny-update-tipo-cambio-same",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "compannyUpdateTipoCambio",
+            "idMasterUser": "1",
+            "tipoCambio": "540.25",
+            "iam": "goldenuser",
+            "sessionKey": "MTgwUUVCcDQ1eDBTMjRZNlBvd3VWQ2hUTEZiSEZhZHd6S3ZjV0dLZXpKb3NlK0s0YVZpeUhZYzI2TCtXWGw5WnZnZEtxeis5ZWlUVjh1QUNKbjllM2c9PTo68Ov3VUfvtto26D6cEO0ZoQ=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":\"-200\"}"
+    }
+}
