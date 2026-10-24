@@ -87,4 +87,26 @@ foreach ($writeCases as $case) {
     saveFixture($outDir, $seq++, $case, $resp);
 }
 
+/* --- Credenciales ATV y ambiente: leen los valores de plantilla que
+ *     copy_master_tables dejó en <id>_master_config_companny. El cambio de
+ *     ambiente va al final para no alterar las lecturas previas. --- */
+
+$credentialCases = [
+    ['name' => 'fact-get-stag-credentials', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'get_stag_credentials'] + $master],
+    ['name' => 'fact-get-prod-credentials', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'get_prod_credentials', 'idMasterUser' => $idMasterUser] + $master],
+    ['name' => 'fact-get-stag-companny-credentials', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'get_stag_companny_credentials'] + $company],
+    ['name' => 'fact-get-prod-companny-credentials', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'get_prod_companny_credentials'] + $company],
+    ['name' => 'fact-company-change-env', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'company_change_env', 'envProduccion' => 'true'] + $master],
+];
+
+foreach ($credentialCases as $case) {
+    $resp = callApi($baseUrl, $case);
+    saveFixture($outDir, $seq++, $case, $resp);
+}
+
 echo "\nListo.\n";
