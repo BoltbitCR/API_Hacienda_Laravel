@@ -2,6 +2,7 @@
 
 namespace App\Services\Facturador;
 
+use App\Legacy\LegacyErrorCode;
 use App\Legacy\LegacyParams;
 use App\Models\Branch;
 use App\Models\Company;
@@ -13,6 +14,7 @@ use App\Models\Product;
 use App\Models\Receiver;
 use App\Models\Terminal;
 use App\Services\Auth\CompanyUserAuthService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -62,10 +64,14 @@ class FacturadorService
             // --- Sucursales / terminales ---
             'getSucursales' => fn (LegacyParams $p) => $this->branches($p),
             'getTerminales' => fn (LegacyParams $p) => $this->terminals($p),
+            'addSucursales' => fn (LegacyParams $p) => $this->addBranch($p),
+            'add_terminal' => fn (LegacyParams $p) => $this->addTerminal($p),
 
             // --- Receptores ---
             'get_active_receiver' => fn (LegacyParams $p) => $this->activeReceivers((int) $p->get('idMasterUser')),
             'get_receiver_by_id' => fn (LegacyParams $p) => $this->receiverById((int) $p->get('idMasterUser'), (string) $p->get('idReceptor')),
+            'add_companny_reciver' => fn (LegacyParams $p) => $this->addReceiver($p),
+            'delete_reciver' => fn (LegacyParams $p) => $this->deleteReceiver($p),
 
             // --- Comprobantes / consecutivos ---
             'get_vouchers' => fn (LegacyParams $p) => $this->vouchers((int) $p->get('idMasterUser'), (string) $p->get('env')),
@@ -74,6 +80,7 @@ class FacturadorService
             // --- Inventario ---
             'get_inventory' => fn (LegacyParams $p) => $this->inventory((int) $p->get('idMasterUser'), (string) $p->get('sucursal')),
             'getProductByCode' => fn (LegacyParams $p) => $this->productByCode($p),
+            'addInventaryProduct' => fn (LegacyParams $p) => $this->addProduct($p),
             'get_tipo_impuesto' => fn () => $this->taxTypes(),
             'getUnid' => fn () => $this->measureUnits(),
         ];
@@ -282,6 +289,29 @@ class FacturadorService
         ])->all();
     }
 
+    private function addBranch(LegacyParams $p): int|string
+    {
+        return $this->insertRow(fn () => Branch::create([
+            'company_id' => $this->resolveCompanyId($p),
+            'nombre_sucursal' => (string) $p->get('nombreSucursal'),
+            'sucursal' => (string) $p->get('numeroSucursal'),
+        ]));
+    }
+
+    private function addTerminal(LegacyParams $p): int|string
+    {
+        $companyId = $this->resolveCompanyId($p);
+
+        return $this->insertRow(fn () => Terminal::create([
+            'company_id' => $companyId,
+            // El legacy no tiene FK: un idSucursal ajeno se acepta y la
+            // terminal queda sin sucursal (getTerminales no la lista).
+            'branch_id' => Branch::where('company_id', $companyId)->whereKey($p->get('idSucursal'))->value('id'),
+            'nombre_terminal' => (string) $p->get('nombreTerminal'),
+            'terminal' => (string) $p->get('numeroTerminal'),
+        ]));
+    }
+
     // ---- Receptores ----
 
     private function activeReceivers(int $companyId): array
@@ -304,6 +334,42 @@ class FacturadorService
         return Receiver::where('company_id', $companyId)
             ->where('estado_cliente', '1')->where('id', $idReceptor)
             ->get()->all();
+    }
+
+    private function addReceiver(LegacyParams $p): int|string
+    {
+        $companyId = (int) $p->get('idMasterUser');
+
+        return $this->insertRow(fn () => Receiver::create([
+            'company_id' => $companyId,
+            'company_user_id' => CompanyUserSession::where('company_id', $companyId)
+                ->where('session_key', (string) $p->get('sessionKey'))
+                ->value('company_user_id'),
+            'nombre_cliente' => (string) $p->get('nombreCliente'),
+            'numero_cedula' => (string) $p->get('numeroCedula'),
+            'tipo_cedula' => (string) $p->get('tipoCedula'),
+            'telefono' => (string) $p->get('telefono'),
+            'id_provincia' => (string) $p->get('idProvincia'),
+            'id_canton' => (string) $p->get('idCanton'),
+            'id_distrito' => (string) $p->get('idDistrito'),
+            'id_barrio' => (string) $p->get('idBarrio'),
+            'otras_senas' => (string) $p->get('otrasSenas'),
+            'nombre_comercial' => (string) $p->get('nombreComercial'),
+            'correo_principal' => (string) $p->get('correoPrincipal'),
+            'copias_correo' => (string) $p->get('copiasCorreo'),
+            'numero_fax' => (string) $p->get('numeroFax'),
+        ]));
+    }
+
+    /** Borrado lógico. Como affected_rows de MySQL, un receptor ya inactivo no cuenta. */
+    private function deleteReceiver(LegacyParams $p): int|string
+    {
+        $updated = Receiver::where('company_id', $this->resolveCompanyId($p))
+            ->whereKey($p->get('idReceptor'))
+            ->where('estado_cliente', '!=', '0')
+            ->update(['estado_cliente' => '0']);
+
+        return $updated > 0 ? $updated : LegacyErrorCode::DB_NO_RESULTS_FOUND;
     }
 
     // ---- Comprobantes / consecutivos ----
@@ -362,6 +428,35 @@ class FacturadorService
                 'products.precio_venta as precioVenta', 'products.cantidad_impuesto as cantidadImpuesto',
                 'tipo_impuestos.codigo',
             ])->all();
+    }
+
+    /** Los valores numéricos van como llegan: igual que el legacy, la BD decide si los acepta. */
+    private function addProduct(LegacyParams $p): int|string
+    {
+        return $this->insertRow(fn () => Product::create([
+            'company_id' => (int) $p->get('idMasterUser'),
+            'sucursal' => (string) $p->get('sucursal'),
+            'nombre' => (string) $p->get('nombre'),
+            'descripcion' => (string) $p->get('descripcion'),
+            'unidad_medida' => (string) $p->get('unidadMedida'),
+            'precio_venta' => $p->get('precioVenta'),
+            'id_impuesto' => $p->get('idImpuesto'),
+            'cantidad_impuesto' => $p->get('cantidadImpuesto'),
+            'codigo_barras' => (string) $p->get('codigoBarras'),
+            'disponible' => $p->get('disponible'),
+        ]));
+    }
+
+    /** INSERT con la respuesta de db_query() legacy: affected_rows o ERROR_DB_ERROR. */
+    private function insertRow(\Closure $insert): int|string
+    {
+        try {
+            $insert();
+        } catch (QueryException) {
+            return LegacyErrorCode::DB_ERROR;
+        }
+
+        return 1;
     }
 
     private function resolveCompanyId(LegacyParams $p): int

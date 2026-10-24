@@ -1,0 +1,32 @@
+{
+    "name": "fact-add-producto",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "addInventaryProduct",
+            "nombre": "Servicio Golden",
+            "descripcion": "Servicio profesional",
+            "unidadMedida": "Sp",
+            "precioVenta": "10000",
+            "idImpuesto": "1",
+            "cantidadImpuesto": "13",
+            "codigoBarras": "7501234567890",
+            "disponible": "10",
+            "sucursal": "001",
+            "idMasterUser": "1",
+            "sessionKey": "$2y$10$/cn6KA3T1Eccn3h0Ss9DzuYahKbb6uzxNXqrWa.Kw6.DA9swmiWpq"
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":1}"
+    }
+}

@@ -1,0 +1,34 @@
+{
+    "name": "fact-add-receptor",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "add_companny_reciver",
+            "nombreCliente": "Cliente Golden",
+            "numeroCedula": "114480790",
+            "tipoCedula": "01",
+            "telefono": "88888888",
+            "idProvincia": "1",
+            "idCanton": "01",
+            "idDistrito": "01",
+            "idBarrio": "01",
+            "otrasSenas": "Frente al parque",
+            "nombreComercial": "Cliente Golden",
+            "correoPrincipal": "cliente@example.com",
+            "idMasterUser": "1",
+            "sessionKey": "$2y$10$/cn6KA3T1Eccn3h0Ss9DzuYahKbb6uzxNXqrWa.Kw6.DA9swmiWpq"
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"status\":\"ok\",\"resp\":1}"
+    }
+}
