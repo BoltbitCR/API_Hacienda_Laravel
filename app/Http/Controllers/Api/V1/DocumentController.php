@@ -6,13 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\EmitDocumentRequest;
 use App\Http\Resources\DocumentResource;
 use App\Http\Support\ActingCompany;
+use App\Models\Company;
 use App\Models\Document;
+use App\Models\HaciendaCredential;
 use App\Services\Emission\DocumentEmissionService;
 use App\Services\Emission\EmissionException;
+use App\Services\Hacienda\ComprobantesClient;
 use App\Services\Hacienda\StatusClient;
 use App\Services\Hacienda\TokenService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 /**
  * Emisión y seguimiento de comprobantes electrónicos (recurso principal de
@@ -128,19 +133,7 @@ class DocumentController extends Controller
         $company = ActingCompany::for($request->user());
         abort_if($company === null, 403, 'Sin empresa asociada.');
 
-        $environment = $data['environment'] ?? null;
-
-        $credential = $company->credentials()
-            ->when($environment !== null, fn ($q) => $q->where('environment', $environment))
-            ->orderByRaw("case when environment = 'prod' then 0 else 1 end")
-            ->first();
-
-        abort_if($credential === null, 422, 'Sin credenciales para consultar.');
-
-        $clientId = $credential->environment === 'prod' ? 'api-prod' : 'api-stag';
-        $token = $this->tokenFor($credential, $clientId);
-
-        abort_if($token === null, 422, 'Las credenciales guardadas no autenticaron contra Hacienda.');
+        [$credential, $clientId, $token] = $this->haciendaSession($company, $data['environment'] ?? null);
 
         $result = $this->status->consultar($data['clave'], $clientId, $token);
 
@@ -163,6 +156,60 @@ class DocumentController extends Controller
             'environment' => $credential->environment,
             'hacienda' => $result,
         ]);
+    }
+
+    /**
+     * Comprobantes que Hacienda tiene registrados con la empresa como
+     * emisor, de todas las páginas. Sirve para saber qué consecutivos ya se
+     * usaron, también los emitidos con otro sistema.
+     */
+    public function comprobantes(Request $request, ComprobantesClient $client): JsonResponse
+    {
+        $data = $request->validate(['environment' => ['nullable', 'in:prod,stag']]);
+
+        $company = ActingCompany::for($request->user());
+        abort_if($company === null, 403, 'Sin empresa asociada.');
+        abort_if(! ctype_digit((string) $company->tipo_cedula) || preg_replace('/\D/', '', (string) $company->cedula) === '',
+            422, 'La empresa no tiene tipo y número de identificación.');
+
+        [$credential, $clientId, $token] = $this->haciendaSession($company, $data['environment'] ?? null);
+        $emisor = ComprobantesClient::emisor((string) $company->tipo_cedula, (string) $company->cedula);
+
+        try {
+            $comprobantes = $client->listar($emisor, $clientId, $token);
+        } catch (RuntimeException|ConnectionException $e) {
+            abort(502, $e->getMessage());
+        }
+
+        return response()->json([
+            'environment' => $credential->environment,
+            'emisor' => $emisor,
+            'total' => count($comprobantes),
+            'comprobantes' => $comprobantes,
+        ]);
+    }
+
+    /**
+     * Credencial del ambiente pedido (o prod antes que stag), su client_id y
+     * un token vigente.
+     *
+     * @return array{0: HaciendaCredential, 1: string, 2: string}
+     */
+    private function haciendaSession(Company $company, ?string $environment): array
+    {
+        $credential = $company->credentials()
+            ->when($environment !== null, fn ($q) => $q->where('environment', $environment))
+            ->orderByRaw("case when environment = 'prod' then 0 else 1 end")
+            ->first();
+
+        abort_if($credential === null, 422, 'Sin credenciales para consultar.');
+
+        $clientId = $credential->environment === 'prod' ? 'api-prod' : 'api-stag';
+        $token = $this->tokenFor($credential, $clientId);
+
+        abort_if($token === null, 422, 'Las credenciales guardadas no autenticaron contra Hacienda.');
+
+        return [$credential, $clientId, $token];
     }
 
     private function tokenFor($credential, string $clientId): ?string
