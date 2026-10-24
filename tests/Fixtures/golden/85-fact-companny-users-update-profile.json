@@ -1,0 +1,26 @@
+{
+    "name": "fact-companny-users-update-profile",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "companny_users_update_profile",
+            "fullName": "Cajero Renombrado",
+            "userName": "goldencajero",
+            "email": "cajero@example.com",
+            "idMasterUser": "1",
+            "sessionKey": "$2y$10$9K13kl1GX0mp8nO8l7IhSekrFetMgNEQO33/G0Zx7I5hTCaMjfUKi"
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "body": ""
+    }
+}
