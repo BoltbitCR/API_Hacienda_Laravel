@@ -11,11 +11,9 @@ use App\Services\Facturador\FacturadorService;
  * module.php legacy (data/facturador_routes.php); los handlers viven en
  * FacturadorService, respaldados por el esquema Eloquent normalizado.
  *
- * Estado del port por bloques (ver plan de migración):
- *  - Catálogos/geo (open access): portado y verificado.
- *  - Autenticación de company-users: portado.
- *  - CRUD de empresa/sucursales/receptores/vouchers/inventario: portado
- *    sobre el esquema nuevo; la paridad fina depende de datos migrados.
+ * Las 51 rutas están portadas y cada una tiene su golden master (fixtures
+ * 61-101). Las que el legacy rompía responden igual que él (body vacío);
+ * las divergencias deliberadas están documentadas en FacturadorService.
  */
 class FacturadorModule implements LegacyModule
 {

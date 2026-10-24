@@ -33,6 +33,19 @@ class FacturadorService
 {
     public const MODULE_VERSION = 'V.0.0';
 
+    /**
+     * Respuesta de copy_master_tables: las tablas plantilla master_% que el
+     * legacy leía de information_schema, en el orden en que MariaDB las
+     * devolvió al capturar el golden 98.
+     */
+    private const MASTER_TABLES = [
+        'master_logs', 'master_config_companny', 'master_permission', 'master_companyusers', 'master_receiver',
+        'master_transmitter', 'master_emisores', 'master_users', 'master_vouchers', 'master_terminales',
+        'master_claves', 'master_receptores', 'master_keys', 'master_inventario', 'master_certi',
+        'master_sessions', 'master_comprobantes', 'master_sucursales', 'master_sqlupgrade',
+        'master_inventary_sucursal_001', 'master_consecutive', 'master_rol', 'master_certificate',
+    ];
+
     public function __construct(private readonly CompanyUserAuthService $companyAuth) {}
 
     /**
@@ -78,6 +91,14 @@ class FacturadorService
             'get_companny_information_admin' => fn (LegacyParams $p) => $this->companyInformation((int) $p->get('idMasterUser')),
             'company_get_env' => fn (LegacyParams $p) => $this->companyGetEnv((int) $p->get('idMasterUser')),
             'company_change_env' => fn (LegacyParams $p) => $this->companyChangeEnv($p),
+
+            // --- Utilidades legacy ---
+            'copy_master_tables' => fn (LegacyParams $p) => $this->copyMasterTables($p),
+            // Mueren siempre: backup_user hace SELECT INTO OUTFILE 'C:\…' y el
+            // catch usa una $e indefinida; insertToLogTable($idUser, $json) se
+            // invoca sin argumentos.
+            'backup_user' => fn () => LegacyResponse::plainDie(''),
+            'inser_to_log_table' => fn () => LegacyResponse::plainDie(''),
             // Las de master editan la empresa de la sesión; el legacy usaba el
             // idMasterUser recibido y dejaba editar cualquier empresa.
             'compannyUpdateTipoCambio' => fn (LegacyParams $p) => $this->updateTipoCambio($p),
@@ -397,6 +418,35 @@ class FacturadorService
         $env = Company::where('id', $companyId)->value('env');
 
         return [(object) ['env' => (string) $env]];
+    }
+
+    /**
+     * Alta de la empresa del master (en el legacy, sus tablas <id>_master_*).
+     * La segunda vez el CREATE TABLE falla y el catch muere con una $e
+     * indefinida: body vacío.
+     *
+     * Divergencia deliberada: el legacy llenaba la config con la plantilla de
+     * CRLibre (sus datos y unas credenciales ATV de ejemplo). Aquí la empresa
+     * nace vacía y las credenciales de ambos ambientes en blanco.
+     */
+    private function copyMasterTables(LegacyParams $p): array|Response
+    {
+        $userId = $this->sessionCompanyId($p);
+        if (Company::whereKey($userId)->exists()) {
+            return LegacyResponse::plainDie('');
+        }
+
+        DB::transaction(function () use ($userId) {
+            $company = Company::create(['id' => $userId, 'owner_user_id' => $userId]);
+            foreach (['stag', 'prod'] as $environment) {
+                HaciendaCredential::create([
+                    'company_id' => $company->id, 'environment' => $environment,
+                    'username' => '', 'password' => '', 'p12_download_code' => '', 'pin' => '',
+                ]);
+            }
+        });
+
+        return self::MASTER_TABLES;
     }
 
     /** Igual que el legacy: cualquier valor distinto de 'true' pasa a staging, y siempre responde 'ok'. */

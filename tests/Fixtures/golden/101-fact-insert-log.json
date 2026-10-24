@@ -1,0 +1,24 @@
+{
+    "name": "fact-insert-log",
+    "compare": "exact",
+    "notes": null,
+    "request": {
+        "method": "POST",
+        "bodyMode": "form",
+        "query": null,
+        "params": {
+            "w": "facturador",
+            "r": "inser_to_log_table",
+            "json": "{\"accion\":\"prueba\"}",
+            "iam": "goldenuser",
+            "sessionKey": "eVN2TDJQZy9FTGJZOEE0MnZETjdZYlk3WkVhbnlGek9PeFRNSG1BTnpNakE4VHYvT2luays0d0hHSzhpNE9wQzk1Zk5ZZlFqVHc5cmlzNjZGcDNGNWc9PTo66LAnsjy5WG/Q6t9N0CfixA=="
+        },
+        "rawBody": null,
+        "files": null
+    },
+    "response": {
+        "status": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "body": ""
+    }
+}

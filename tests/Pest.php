@@ -12,11 +12,12 @@ pest()->extend(TestCase::class)
 
 /**
  * Master user legacy con su empresa (company_id == user id) y una sesión
- * viva, para llamar a /api.php?w=facturador como el dueño.
+ * viva, para llamar a /api.php?w=facturador como el dueño. Sin empresa es
+ * un master recién registrado, antes de copy_master_tables.
  *
  * @return array{id: int, params: array<string, string>}
  */
-function facturadorMaster(string $userName): array
+function facturadorMaster(string $userName, bool $withCompany = true): array
 {
     $user = User::create([
         'full_name' => $userName, 'user_name' => $userName, 'email' => "$userName@example.com",
@@ -24,7 +25,9 @@ function facturadorMaster(string $userName): array
         'last_access' => time(), 'password' => password_hash('x', PASSWORD_BCRYPT, ['cost' => 4]),
         'avatar' => '0', 'settings' => 'NULL',
     ]);
-    Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
+    if ($withCompany) {
+        Company::create(['id' => $user->id, 'owner_user_id' => $user->id]);
+    }
     LegacySession::create([
         'user_id' => $user->id, 'session_key' => "sk-$userName", 'ip' => '127.0.0.1', 'last_access' => time(),
     ]);

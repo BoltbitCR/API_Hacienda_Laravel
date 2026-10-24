@@ -18,6 +18,12 @@ usado por los tests de paridad de la migración a Laravel 12.
 
 ## Cómo regenerar los fixtures
 
+Los del módulo `facturador` (61-101) salen de `capture-facturador.php`, que
+además necesita las "Tablas para Facturador CRLibre.sql" cargadas en la BD
+(`docker exec -i crlibre-mariadb mariadb -utestuser -ptestpassword testdb <
+"legacy/recursos/Tablas para Facturador CRLibre.sql"`) y un legacy sin
+usuarios: arma su propio master y regenera todos sus fixtures en cada corrida.
+
 ```bash
 cd legacy
 docker compose up -d --build
@@ -54,6 +60,4 @@ php legacy/golden/capture.php
 
 ## Pendiente (Fase 4)
 
-- Fixtures del módulo `facturador` (~50 rutas; requieren registro de empresa
-  y tablas dinámicas `<id>_master_*`).
 - Fixtures de `geoloc` y `sendMail`.

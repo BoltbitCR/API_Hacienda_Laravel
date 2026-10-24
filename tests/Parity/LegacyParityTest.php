@@ -134,6 +134,10 @@ const IMPLEMENTED = [
     'fact-companny-update-consecutive-none',
     'fact-companny-add-voucher',
     'fact-companny-add-voucher-sin-receptor',
+    'fact-copy-master-tables',
+    'fact-copy-master-tables-repeat',
+    'fact-backup-user',
+    'fact-insert-log',
 ];
 
 /** Fixtures que requieren los catálogos MH sembrados. */
@@ -183,8 +187,18 @@ const FACTURADOR_COMPANY_DATA = [
     'fact-companny-update-consecutive-none', 'fact-companny-add-voucher', 'fact-companny-add-voucher-sin-receptor',
 ];
 
+/**
+ * Utilidades legacy sobre un master que ya tiene empresa: copy_master_tables
+ * repetido, backup_user e inser_to_log_table mueren con body vacío. El alta
+ * (fact-copy-master-tables) corre con goldencopia, un master sin empresa.
+ */
+const FACTURADOR_UTILITIES = ['fact-copy-master-tables-repeat', 'fact-backup-user', 'fact-insert-log'];
+
 /** Fixtures que corren sobre la empresa del goldenuser. */
-const FACTURADOR_COMPANY = [...FACTURADOR_WRITES, ...FACTURADOR_CREDENTIALS, ...FACTURADOR_USERS, ...FACTURADOR_COMPANY_DATA];
+const FACTURADOR_COMPANY = [
+    ...FACTURADOR_WRITES, ...FACTURADOR_CREDENTIALS, ...FACTURADOR_USERS, ...FACTURADOR_COMPANY_DATA,
+    ...FACTURADOR_UTILITIES,
+];
 
 /**
  * Fixtures que golpean los endpoints reales de Hacienda (sandbox). Solo se
@@ -282,7 +296,7 @@ function seedFixtureState(GoldenFixture $f): void
         'users-login-email', 'users-get-my-details', 'users-confirm-session',
         'users-bad-session', 'users-logout', 'upload-cert',
         'xmltobase64-good-code', 'firmar-fe', 'firmar-bad-pin',
-    ], true) || in_array($f->name, FACTURADOR_COMPANY, true);
+    ], true) || in_array($f->name, [...FACTURADOR_COMPANY, 'fact-copy-master-tables'], true);
 
     if (! $needsGoldenUser) {
         return;
@@ -301,6 +315,11 @@ function seedFixtureState(GoldenFixture $f): void
         'avatar' => '0',
         'settings' => 'NULL',
     ]);
+
+    // El alta de empresa se capturó con goldencopia, un master recién registrado.
+    if ($f->name === 'fact-copy-master-tables') {
+        $user->update(['user_name' => 'goldencopia', 'email' => 'copia@example.com']);
+    }
 
     // Sesión válida para la sessionKey exacta que viaja en el request capturado.
     $sessionKey = $f->params['sessionKey'] ?? null;

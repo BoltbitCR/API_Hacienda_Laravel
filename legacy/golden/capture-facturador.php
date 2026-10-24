@@ -197,4 +197,28 @@ foreach ($companyCases as $case) {
     saveFixture($outDir, $seq++, $case, $resp);
 }
 
+/* --- Utilidades legacy. goldencopia es un master nuevo, sin tablas
+ *     <id>_master_*; goldenuser ya las tiene desde la preparación. --- */
+
+callApi($baseUrl, ['params' => ['w' => 'users', 'r' => 'users_register', 'fullName' => 'Golden Copia',
+    'userName' => 'goldencopia', 'email' => 'copia@example.com', 'about' => '{}', 'country' => 'crc', 'pwd' => $pwd]]);
+$copiaLogin = callApi($baseUrl, ['params' => ['w' => 'users', 'r' => 'users_log_me_in', 'userName' => 'goldencopia', 'pwd' => $pwd]]);
+$copia = ['iam' => 'goldencopia', 'sessionKey' => (string) extractKey($copiaLogin['body'], 'sessionKey')];
+
+$utilityCases = [
+    ['name' => 'fact-copy-master-tables', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'copy_master_tables'] + $copia],
+    ['name' => 'fact-copy-master-tables-repeat', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'copy_master_tables'] + $master],
+    ['name' => 'fact-backup-user', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'backup_user'] + $master],
+    ['name' => 'fact-insert-log', 'compare' => 'exact',
+     'params' => ['w' => 'facturador', 'r' => 'inser_to_log_table', 'json' => '{"accion":"prueba"}'] + $master],
+];
+
+foreach ($utilityCases as $case) {
+    $resp = callApi($baseUrl, $case);
+    saveFixture($outDir, $seq++, $case, $resp);
+}
+
 echo "\nListo.\n";
