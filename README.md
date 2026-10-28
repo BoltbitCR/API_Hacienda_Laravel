@@ -2,13 +2,18 @@
 
 # API Hacienda — Facturación Electrónica de Costa Rica 
 
-Migración y modernización del proyecto de [API_Hacienda de CRLibre](https://github.com/CRLibre/API_Hacienda) en Laravel, manteniendo **compatibilidad total** con los clientes del API original.
+![Instalaciones activas](https://img.shields.io/endpoint?url=https%3A%2F%2Ftelemetria-api-hacienda.boltbitcr.com%2Fbadge.json)
+[![GitHub](https://img.shields.io/github/license/BoltbitCR/API_Hacienda_Laravel.svg)](https://github.com/BoltbitCR/API_Hacienda_Laravel/blob/v4.4/LICENSE)
+[![GitHub commit activity the past week, 4 weeks, year](https://img.shields.io/github/commit-activity/y/BoltbitCR/API_Hacienda_Laravel/v4.4.svg?logo=github)](https://github.com/BoltbitCR/API_Hacienda_Laravel/commits/v4.4)
+[![GitHub issues](https://img.shields.io/github/issues-raw/BoltbitCR/API_Hacienda_Laravel.svg)](https://github.com/BoltbitCR/API_Hacienda_Laravel/issues)
+[![GitHub pulls](https://img.shields.io/github/issues-pr/BoltbitCR/API_Hacienda_Laravel.svg)](https://github.com/BoltbitCR/API_Hacienda_Laravel/pulls)
+[![Tests](https://github.com/BoltbitCR/API_Hacienda_Laravel/actions/workflows/tests.yml/badge.svg?branch=v4.4)](https://github.com/BoltbitCR/API_Hacienda_Laravel/actions/workflows/tests.yml)
+
+
+Migración y modernización del proyecto de [API_Hacienda de CRLibre](https://github.com/CRLibre/API_Hacienda) en Laravel 12.
 
 Soporte actual para V4.4
 
-
-> El código original en `/legacy` se mantiene **de forma permanente** como
-> referencia histórica y golden master.
 
 ## Documentación
 
@@ -22,6 +27,11 @@ Toda la documentación está en la **[wiki](https://github.com/BoltbitCR/API_Hac
 - [Arquitectura](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Arquitectura), [pruebas](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Pruebas) y [cómo contribuir](https://github.com/BoltbitCR/API_Hacienda_Laravel/wiki/Contribuir)
 
 Cada instalación sirve además su especificación OpenAPI en `/docs/api`.
+
+## Telemetría
+
+- `php artisan telemetry:status` muestra exactamente lo que se envía.
+- Para apagarla: `TELEMETRY_ENABLED=false` en el `.env`.
 
 
 ## CRLibre y Factura Electrónica en Costa Rica
