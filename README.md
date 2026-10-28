@@ -30,6 +30,8 @@ Cada instalación sirve además su especificación OpenAPI en `/docs/api`.
 
 ## Telemetría
 
+![Instalaciones activas en el tiempo](https://telemetria-api-hacienda.boltbitcr.com/chart.svg)
+
 - `php artisan telemetry:status` muestra exactamente lo que se envía.
 - Para apagarla: `TELEMETRY_ENABLED=false` en el `.env`.
 
