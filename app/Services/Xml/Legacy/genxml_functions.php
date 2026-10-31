@@ -3737,7 +3737,24 @@ function genXMLMr()
     if (!empty($montoTotalImpuesto)) {
         $xmlString .= '<MontoTotalImpuesto>' . _xml($montoTotalImpuesto) . '</MontoTotalImpuesto>';
     }
-    $xmlString .= '<CodigoActividad>' . _xml($codigoActividad) . '</CodigoActividad>
+    $xmlString .= '<CodigoActividad>' . _xml($codigoActividad) . '</CodigoActividad>';
+
+    // Nota 18: condición del IVA y montos a acreditar / gasto aplicable
+    // (opcionales en el XSD; se emiten solo si vienen).
+    $condicionImpuesto = params_get("condicion_impuesto");
+    if (!empty($condicionImpuesto)) {
+        $xmlString .= '<CondicionImpuesto>' . _xml($condicionImpuesto) . '</CondicionImpuesto>';
+    }
+    $montoTotalImpuestoAcreditar = params_get("monto_total_impuesto_acreditar");
+    if ($montoTotalImpuestoAcreditar !== false && $montoTotalImpuestoAcreditar !== '') {
+        $xmlString .= '<MontoTotalImpuestoAcreditar>' . _xml($montoTotalImpuestoAcreditar) . '</MontoTotalImpuestoAcreditar>';
+    }
+    $montoTotalDeGastoAplicable = params_get("monto_total_gasto_aplicable");
+    if ($montoTotalDeGastoAplicable !== false && $montoTotalDeGastoAplicable !== '') {
+        $xmlString .= '<MontoTotalDeGastoAplicable>' . _xml($montoTotalDeGastoAplicable) . '</MontoTotalDeGastoAplicable>';
+    }
+
+    $xmlString .= '
     <TotalFactura>' . _xml($totalFactura) . '</TotalFactura>
     <NumeroCedulaReceptor>' . _xml($numeroCedulaReceptor) . '</NumeroCedulaReceptor>
     <NumeroConsecutivoReceptor>' . _xml($numeroConsecutivoReceptor) . '</NumeroConsecutivoReceptor>';
