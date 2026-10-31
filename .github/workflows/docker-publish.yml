@@ -1,0 +1,49 @@
+# Publica la imagen de producción (Dockerfile) en GHCR para que cualquier
+# instalación la corra con `docker compose pull` sin construir en el servidor:
+#   ghcr.io/boltbitcr/api_hacienda_laravel:v4.4     (rama)
+#   ghcr.io/boltbitcr/api_hacienda_laravel:sha-<7>   (commit)
+#   ghcr.io/boltbitcr/api_hacienda_laravel:X.Y.Z     (tag vX.Y.Z)
+# En docker-compose.prod.yml: API_IMAGE=ghcr.io/boltbitcr/api_hacienda_laravel:sha-<7>
+name: Imagen Docker
+
+on:
+  push:
+    branches: [v4.4]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Iniciar sesión en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Etiquetas de la imagen
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+
+      - name: Construir y publicar
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
