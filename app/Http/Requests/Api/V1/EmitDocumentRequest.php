@@ -30,7 +30,11 @@ class EmitDocumentRequest extends FormRequest
             'environment' => ['sometimes', Rule::in(['stag', 'prod'])],
 
             // Datos del documento (mismas claves que el generador v4.4).
-            'fecha_emision' => ['sometimes', 'string'],
+            'fecha_emision' => ['sometimes', 'nullable', 'string'],
+            // Situación de la clave (nota 3): por comprobante; sin ella, la de la empresa.
+            'situacion' => ['sometimes', Rule::in(['normal', 'contingencia', 'sininternet'])],
+            // URL a la que Hacienda avisa el resultado (Anexo 3, callbackUrl).
+            'callback_url' => ['sometimes', 'nullable', 'url', 'max:500'],
             // REP: solo 09/11 (nota 5); fuera del REP no se aceptan.
             'condicion_venta' => ['required_unless:tipo,MR', 'string', $this->input('tipo') === 'REP'
                 ? Rule::in(InformacionReferencia::REP_CONDICIONES_VENTA)
@@ -61,6 +65,34 @@ class EmitDocumentRequest extends FormRequest
 
             // Escape hatch: parámetros adicionales del generador legacy.
             'params' => ['sometimes', 'array'],
+        ] + $this->mensajeReceptorRules();
+    }
+
+    /**
+     * Mensaje receptor (MR): confirma un comprobante AJENO, así que lleva la
+     * clave del comprobante recibido, quién lo emitió y el mensaje (nota 11).
+     *
+     * @return array<string, mixed>
+     */
+    private function mensajeReceptorRules(): array
+    {
+        if ($this->input('tipo') !== 'MR') {
+            return [];
+        }
+
+        return [
+            'clave' => ['required', 'string', 'regex:/^[A-Za-z0-9]{50}$/'],
+            'mensaje' => ['required', Rule::in(['1', '2', '3', 1, 2, 3])],
+            'detalle_mensaje' => ['required_unless:mensaje,1', 'nullable', 'string', 'min:5', 'max:160'],
+            'tipo_identificacion_emisor' => ['required', Rule::in(['01', '02', '03', '04', '05', '06'])],
+            'numero_cedula_emisor' => ['required', 'string', 'max:20'],
+            'fecha_emision_doc' => ['sometimes', 'string'],
+            'total_factura' => ['required', 'numeric'],
+            'monto_total_impuesto' => ['sometimes', 'nullable', 'numeric'],
+            'codigo_actividad' => ['sometimes', 'nullable', 'string', 'size:6'],
+            'condicion_impuesto' => ['sometimes', 'nullable', Rule::in(['01', '02', '03', '04', '05'])],
+            'monto_total_impuesto_acreditar' => ['sometimes', 'nullable', 'numeric'],
+            'monto_total_gasto_aplicable' => ['sometimes', 'nullable', 'numeric'],
         ];
     }
 
@@ -145,6 +177,8 @@ class EmitDocumentRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'clave.regex' => 'La clave del comprobante recibido debe tener 50 caracteres alfanuméricos.',
+            'detalle_mensaje.required_unless' => 'El rechazo y la aceptación parcial exigen el motivo en detalle_mensaje (5 a 160 caracteres).',
             'informacion_referencia.required_if' => 'Las notas de crédito y débito y el Recibo Electrónico de Pago requieren la información de referencia.',
             'condicion_venta.in' => 'El Recibo Electrónico de Pago solo admite la condición de venta 09 u 11.',
             'condicion_venta.not_in' => 'Las condiciones de venta 09 y 11 son exclusivas del Recibo Electrónico de Pago.',

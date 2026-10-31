@@ -1,0 +1,3153 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Laravel",
+        "version": "1.0.0",
+        "description": "API REST de facturaci\u00f3n electr\u00f3nica de Costa Rica (Hacienda v4.4). Autenticaci\u00f3n por token Bearer (Sanctum): use POST /api/v1/auth/login (usuario master) o /api/v1/auth/company/login (sub-usuario de empresa)."
+    },
+    "servers": [
+        {
+            "url": "http://localhost/api/v1"
+        }
+    ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
+    "paths": {
+        "/auth/register": {
+            "post": {
+                "operationId": "auth.register",
+                "summary": "Registro de usuario master: crea el usuario, su empresa y devuelve un\ntoken Sanctum (auto-login, como hac\u00eda el registro legacy)",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "principal": {
+                                            "type": "string",
+                                            "const": "master"
+                                        },
+                                        "user": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "user_name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                },
+                                                "company_id": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "user_name",
+                                                "email",
+                                                "company_id"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "token_type",
+                                        "principal",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "El registro de cuentas est\u00e1 deshabilitado en esta instalaci\u00f3n."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "operationId": "auth.login",
+                "summary": "Login de usuario master (due\u00f1o de empresa)",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "principal": {
+                                            "type": "string",
+                                            "const": "master"
+                                        },
+                                        "user": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "user_name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                },
+                                                "company_id": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "user_name",
+                                                "email",
+                                                "company_id"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "token_type",
+                                        "principal",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/auth/company/login": {
+            "post": {
+                "operationId": "auth.companyLogin",
+                "summary": "Login de sub-usuario de una empresa",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CompanyLoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "principal": {
+                                            "type": "string",
+                                            "const": "company"
+                                        },
+                                        "user": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "user_name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                },
+                                                "company_id": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "user_name",
+                                                "email",
+                                                "company_id"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "token_type",
+                                        "principal",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "operationId": "auth.me",
+                "summary": "Datos del principal autenticado",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "principal": {
+                                            "type": "string",
+                                            "enum": [
+                                                "company",
+                                                "master"
+                                            ]
+                                        },
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "user_name": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "company_id": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "abilities": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "minItems": 0,
+                                                    "maxItems": 0,
+                                                    "additionalItems": false
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "principal",
+                                        "id",
+                                        "user_name",
+                                        "email",
+                                        "company_id",
+                                        "abilities"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "auth.logout",
+                "summary": "Revoca el token actual (logout)",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Sesi\u00f3n cerrada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/branches": {
+            "get": {
+                "operationId": "branch.index",
+                "tags": [
+                    "Branch"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Branch"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "branch.store",
+                "tags": [
+                    "Branch"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "nombre_sucursal": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "sucursal": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    }
+                                },
+                                "required": [
+                                    "nombre_sucursal",
+                                    "sucursal"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Branch"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/terminals": {
+            "get": {
+                "operationId": "branch.terminals",
+                "tags": [
+                    "Branch"
+                ],
+                "parameters": [
+                    {
+                        "name": "branch_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Terminal"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "branch.storeTerminal",
+                "tags": [
+                    "Branch"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "nombre_terminal": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "terminal": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "branch_id": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "nombre_terminal",
+                                    "terminal",
+                                    "branch_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Terminal"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/company": {
+            "get": {
+                "operationId": "company.show",
+                "tags": [
+                    "Company"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Company"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "company.update",
+                "tags": [
+                    "Company"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "nombre": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "nombre_comercial": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "tel_cod_pais": {
+                                        "type": "string",
+                                        "maxLength": 5
+                                    },
+                                    "tel_numero": {
+                                        "type": "string",
+                                        "maxLength": 20
+                                    },
+                                    "fax_cod_pais": {
+                                        "type": "string",
+                                        "maxLength": 5
+                                    },
+                                    "fax_numero": {
+                                        "type": "string",
+                                        "maxLength": 20
+                                    },
+                                    "tipo_cedula": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "cedula": {
+                                        "type": "string",
+                                        "maxLength": 20
+                                    },
+                                    "proveedor_sistemas": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "C\u00e9dula del proveedor del sistema de facturaci\u00f3n (ProveedorSistemas);\nvac\u00eda = desarrollo propio (se usa la del emisor).",
+                                        "maxLength": 20
+                                    },
+                                    "id_provincia": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "id_canton": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "id_distrito": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "id_barrio": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "sennas": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "tipo_cambio": {
+                                        "type": "string",
+                                        "maxLength": 20
+                                    },
+                                    "env": {
+                                        "type": "string",
+                                        "enum": [
+                                            "api-stag",
+                                            "api-prod"
+                                        ]
+                                    },
+                                    "situacion": {
+                                        "type": "string",
+                                        "enum": [
+                                            "normal",
+                                            "contingencia",
+                                            "sininternet"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Company"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/company/credentials": {
+            "get": {
+                "operationId": "credential.index",
+                "tags": [
+                    "Credential"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "environment": {
+                                                "type": "string"
+                                            },
+                                            "username": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "p12_download_code": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            },
+                                            "has_pin": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "environment",
+                                            "username",
+                                            "p12_download_code",
+                                            "has_pin"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "credential.upsert",
+                "tags": [
+                    "Credential"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "environment": {
+                                        "type": "string",
+                                        "enum": [
+                                            "stag",
+                                            "prod"
+                                        ]
+                                    },
+                                    "username": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "p12_download_code": {
+                                        "type": "string"
+                                    },
+                                    "pin": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "environment",
+                                    "username",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "username": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "p12_download_code": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "has_pin": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "environment",
+                                        "username",
+                                        "p12_download_code",
+                                        "has_pin"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/company/certificate": {
+            "post": {
+                "operationId": "credential.uploadCertificate",
+                "summary": "Sube el certificado .p12 del emisor y lo vincula a la credencial del\nambiente indicado (crea la credencial si a\u00fan no existe)",
+                "tags": [
+                    "Credential"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "environment": {
+                                        "type": "string",
+                                        "enum": [
+                                            "stag",
+                                            "prod"
+                                        ]
+                                    },
+                                    "certificate": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "contentMediaType": "application/octet-stream"
+                                    },
+                                    "pin": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "environment",
+                                    "certificate"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "username": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "p12_download_code": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "has_pin": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "environment",
+                                        "username",
+                                        "p12_download_code",
+                                        "has_pin"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/documents": {
+            "get": {
+                "operationId": "document.index",
+                "summary": "Lista los comprobantes de la empresa autenticada",
+                "tags": [
+                    "Document"
+                ],
+                "parameters": [
+                    {
+                        "name": "environment",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "tipo",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `DocumentResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/DocumentResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "document.store",
+                "description": "Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la\npetici\u00f3n devuelve 200 con el comprobante ya emitido en vez de emitir\notro. Una clave que ya lleg\u00f3 a Hacienda responde 409.",
+                "summary": "Emite un nuevo comprobante electr\u00f3nico",
+                "tags": [
+                    "Document"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmitDocumentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "clave": {
+                                            "type": "string"
+                                        },
+                                        "consecutivo": {
+                                            "type": "string"
+                                        },
+                                        "xml": {
+                                            "type": "string"
+                                        },
+                                        "xmlFirmado": {
+                                            "type": "string"
+                                        },
+                                        "envio": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Status": {
+                                                            "type": "integer"
+                                                        },
+                                                        "text": {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "Status",
+                                                        "text"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Status": {
+                                                            "type": "integer"
+                                                        },
+                                                        "to": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "api-prod",
+                                                                "api-stag"
+                                                            ]
+                                                        },
+                                                        "text": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "Status",
+                                                        "to",
+                                                        "text"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "document_id": {
+                                            "type": "integer"
+                                        },
+                                        "estado": {
+                                            "type": "string"
+                                        },
+                                        "recepcion": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer"
+                                                },
+                                                "causa": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "status",
+                                                "causa"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "clave",
+                                        "consecutivo",
+                                        "xml",
+                                        "xmlFirmado",
+                                        "envio",
+                                        "document_id",
+                                        "estado",
+                                        "recepcion"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "409": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "document_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "document_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "clave": {
+                                            "type": "string"
+                                        },
+                                        "consecutivo": {
+                                            "type": "string"
+                                        },
+                                        "xmlFirmado": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "document_id": {
+                                            "type": "integer"
+                                        },
+                                        "estado": {
+                                            "type": "string"
+                                        },
+                                        "recepcion": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "causa": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "status",
+                                                "causa"
+                                            ]
+                                        },
+                                        "idempotent_replay": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "clave",
+                                        "consecutivo",
+                                        "xmlFirmado",
+                                        "document_id",
+                                        "estado",
+                                        "recepcion",
+                                        "idempotent_replay"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/documents/{document}": {
+            "get": {
+                "operationId": "document.show",
+                "summary": "Muestra un comprobante de la empresa, con el XML enviado y la\nrespuesta de Hacienda (MensajeHacienda) si ya se consult\u00f3",
+                "tags": [
+                    "Document"
+                ],
+                "parameters": [
+                    {
+                        "name": "document",
+                        "in": "path",
+                        "required": true,
+                        "description": "The document ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`DocumentDetailResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DocumentDetailResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/documents/{document}/status": {
+            "get": {
+                "operationId": "document.status",
+                "summary": "Consulta el estado del comprobante en Hacienda y lo actualiza. Guarda\ntambi\u00e9n el MensajeHacienda (`respuesta-xml`), que es el respaldo\nfiscal del aceptado o rechazado",
+                "tags": [
+                    "Document"
+                ],
+                "parameters": [
+                    {
+                        "name": "document",
+                        "in": "path",
+                        "required": true,
+                        "description": "The document ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "document": {
+                                            "$ref": "#/components/schemas/DocumentDetailResource"
+                                        },
+                                        "hacienda": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "null"
+                                                },
+                                                {
+                                                    "type": "object"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Status": {
+                                                            "type": "integer"
+                                                        },
+                                                        "to": {
+                                                            "type": "null"
+                                                        },
+                                                        "text": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "Status",
+                                                        "to",
+                                                        "text"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "Ha ocurrido un error en el client_id.",
+                                                        "La clave no puede ser en blanco"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "document",
+                                        "hacienda"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin credenciales para consultar."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/hacienda/status": {
+            "get": {
+                "operationId": "document.statusByClave",
+                "description": "A diferencia de status(), no exige que el comprobante exista ac\u00e1:\nun receptor necesita poder verificar lo que le emiti\u00f3 su proveedor,\ny Hacienda responde la consulta a cualquier contribuyente con token\nv\u00e1lido. Se usan las credenciales ATV de la empresa autenticada.\n\nSin `environment` se usa producci\u00f3n si la empresa tiene esas\ncredenciales; si no, las de staging.",
+                "summary": "Estado en Hacienda de CUALQUIER comprobante, dado su clave",
+                "tags": [
+                    "Document"
+                ],
+                "parameters": [
+                    {
+                        "name": "clave",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9]{50}$"
+                        }
+                    },
+                    {
+                        "name": "environment",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "prod",
+                                "stag"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "clave": {
+                                            "type": "string"
+                                        },
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "hacienda": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "null"
+                                                },
+                                                {
+                                                    "type": "object"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "Status": {
+                                                            "type": "integer"
+                                                        },
+                                                        "to": {
+                                                            "type": "null"
+                                                        },
+                                                        "text": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "Status",
+                                                        "to",
+                                                        "text"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "Ha ocurrido un error en el client_id.",
+                                                        "La clave no puede ser en blanco"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "clave",
+                                        "environment",
+                                        "hacienda"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/hacienda/comprobantes": {
+            "get": {
+                "operationId": "document.comprobantes",
+                "summary": "Comprobantes que Hacienda tiene registrados con la empresa como\nemisor, de todas las p\u00e1ginas. Sirve para saber qu\u00e9 consecutivos ya se\nusaron, tambi\u00e9n los emitidos con otro sistema",
+                "tags": [
+                    "Document"
+                ],
+                "parameters": [
+                    {
+                        "name": "environment",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "prod",
+                                "stag"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "emisor": {
+                                            "type": "string"
+                                        },
+                                        "total": {
+                                            "type": "integer"
+                                        },
+                                        "comprobantes": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 0,
+                                            "maxItems": 0,
+                                            "additionalItems": false
+                                        }
+                                    },
+                                    "required": [
+                                        "environment",
+                                        "emisor",
+                                        "total",
+                                        "comprobantes"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "502": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/documents/validate": {
+            "post": {
+                "operationId": "document.validate",
+                "summary": "Genera y firma el comprobante y lo valida contra el XSD oficial v4.4\nsin consumir consecutivo ni enviarlo a Hacienda. Mismo cuerpo que la\nemisi\u00f3n; responde `valid`, `errors` y el XML sin firmar",
+                "tags": [
+                    "Document"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmitDocumentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "valid": {
+                                            "type": "boolean"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "El XML no es v\u00e1lido"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "xml": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "valid",
+                                        "errors",
+                                        "xml"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/geo/provinces": {
+            "get": {
+                "operationId": "geo.provinces",
+                "tags": [
+                    "Geo"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/geo/provinces/{province}/cantons": {
+            "get": {
+                "operationId": "geo.cantons",
+                "tags": [
+                    "Geo"
+                ],
+                "parameters": [
+                    {
+                        "name": "province",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/geo/provinces/{province}/cantons/{canton}/districts": {
+            "get": {
+                "operationId": "geo.districts",
+                "tags": [
+                    "Geo"
+                ],
+                "parameters": [
+                    {
+                        "name": "province",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "canton",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/geo/provinces/{province}/cantons/{canton}/districts/{district}/neighborhoods": {
+            "get": {
+                "operationId": "geo.neighborhoods",
+                "tags": [
+                    "Geo"
+                ],
+                "parameters": [
+                    {
+                        "name": "province",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "canton",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "district",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/catalogs/tax-types": {
+            "get": {
+                "operationId": "geo.taxTypes",
+                "tags": [
+                    "Geo"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/catalogs/measure-units": {
+            "get": {
+                "operationId": "geo.measureUnits",
+                "tags": [
+                    "Geo"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/catalogs/id-types": {
+            "get": {
+                "operationId": "geo.idTypes",
+                "tags": [
+                    "Geo"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products": {
+            "get": {
+                "operationId": "products.index",
+                "tags": [
+                    "Product"
+                ],
+                "parameters": [
+                    {
+                        "name": "sucursal",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Product"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "products.store",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "sucursal": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                    },
+                                    "nombre": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "descripcion": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "unidad_medida": {
+                                        "type": "string",
+                                        "maxLength": 20
+                                    },
+                                    "precio_venta": {
+                                        "type": "number"
+                                    },
+                                    "id_impuesto": {
+                                        "type": "integer"
+                                    },
+                                    "cantidad_impuesto": {
+                                        "type": "integer"
+                                    },
+                                    "codigo_barras": {
+                                        "type": "string",
+                                        "maxLength": 100
+                                    },
+                                    "disponible": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "sucursal",
+                                    "nombre",
+                                    "unidad_medida",
+                                    "precio_venta",
+                                    "codigo_barras"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Product"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/products/{product}": {
+            "put": {
+                "operationId": "products.update",
+                "tags": [
+                    "Product"
+                ],
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "required": true,
+                        "description": "The product ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Product"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "products.destroy",
+                "tags": [
+                    "Product"
+                ],
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "required": true,
+                        "description": "The product ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Producto eliminado."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/receivers": {
+            "get": {
+                "operationId": "receivers.index",
+                "tags": [
+                    "Receiver"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Receiver"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "receivers.store",
+                "tags": [
+                    "Receiver"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Receiver"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "Sin empresa asociada."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/receivers/{receiver}": {
+            "get": {
+                "operationId": "receivers.show",
+                "tags": [
+                    "Receiver"
+                ],
+                "parameters": [
+                    {
+                        "name": "receiver",
+                        "in": "path",
+                        "required": true,
+                        "description": "The receiver ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Receiver"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "receivers.destroy",
+                "tags": [
+                    "Receiver"
+                ],
+                "parameters": [
+                    {
+                        "name": "receiver",
+                        "in": "path",
+                        "required": true,
+                        "description": "The receiver ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "borrado l\u00f3gico, como el legacy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Receptor desactivado."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "receiver.update",
+                "tags": [
+                    "Receiver"
+                ],
+                "parameters": [
+                    {
+                        "name": "receiver",
+                        "in": "path",
+                        "required": true,
+                        "description": "The receiver ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Receiver"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        },
+        "schemas": {
+            "Branch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "company_id": {
+                        "type": "integer"
+                    },
+                    "nombre_sucursal": {
+                        "type": "string"
+                    },
+                    "sucursal": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "company_id",
+                    "nombre_sucursal",
+                    "sucursal"
+                ],
+                "title": "Branch"
+            },
+            "Company": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "owner_user_id": {
+                        "type": "integer"
+                    },
+                    "nombre": {
+                        "type": "string"
+                    },
+                    "tipo_cedula": {
+                        "type": "string"
+                    },
+                    "cedula": {
+                        "type": "string"
+                    },
+                    "nombre_comercial": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id_provincia": {
+                        "type": "string"
+                    },
+                    "id_canton": {
+                        "type": "string"
+                    },
+                    "id_distrito": {
+                        "type": "string"
+                    },
+                    "id_barrio": {
+                        "type": "string"
+                    },
+                    "sennas": {
+                        "type": "string"
+                    },
+                    "tel_cod_pais": {
+                        "type": "string"
+                    },
+                    "tel_numero": {
+                        "type": "string"
+                    },
+                    "fax_cod_pais": {
+                        "type": "string"
+                    },
+                    "fax_numero": {
+                        "type": "string"
+                    },
+                    "env": {
+                        "type": "string"
+                    },
+                    "situacion": {
+                        "type": "string"
+                    },
+                    "tipo_cambio": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "proveedor_sistemas": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "owner_user_id",
+                    "nombre",
+                    "tipo_cedula",
+                    "cedula",
+                    "nombre_comercial",
+                    "email",
+                    "id_provincia",
+                    "id_canton",
+                    "id_distrito",
+                    "id_barrio",
+                    "sennas",
+                    "tel_cod_pais",
+                    "tel_numero",
+                    "fax_cod_pais",
+                    "fax_numero",
+                    "env",
+                    "situacion",
+                    "tipo_cambio",
+                    "created_at",
+                    "updated_at",
+                    "proveedor_sistemas"
+                ],
+                "title": "Company"
+            },
+            "CompanyLoginRequest": {
+                "type": "object",
+                "description": "Login de sub-usuario de empresa. Requiere el id de la empresa (master).",
+                "properties": {
+                    "company_id": {
+                        "type": "integer"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "company_id",
+                    "username",
+                    "password"
+                ],
+                "title": "CompanyLoginRequest"
+            },
+            "DocumentDetailResource": {
+                "type": "object",
+                "additionalProperties": {},
+                "title": "DocumentDetailResource"
+            },
+            "DocumentResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "clave": {
+                        "type": "string"
+                    },
+                    "consecutivo": {
+                        "type": "string"
+                    },
+                    "tipo_documento": {
+                        "type": "string"
+                    },
+                    "estado": {
+                        "type": "string"
+                    },
+                    "recepcion_status": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "HTTP de la recepci\u00f3n de Hacienda (202 recibido, 400 rechazado,\n0 sin conexi\u00f3n); null en comprobantes anteriores a la columna."
+                    },
+                    "mensaje_error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "environment": {
+                        "type": "string"
+                    },
+                    "fecha_creacion": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "clave",
+                    "consecutivo",
+                    "tipo_documento",
+                    "estado",
+                    "recepcion_status",
+                    "mensaje_error",
+                    "environment",
+                    "fecha_creacion"
+                ],
+                "title": "DocumentResource"
+            },
+            "EmitDocumentRequest": {
+                "type": "object",
+                "description": "Solicitud de emisi\u00f3n de un comprobante electr\u00f3nico. El emisor sale de la\nempresa autenticada; el cliente env\u00eda el tipo, el ambiente y los datos del\ndocumento (receptor, detalles, medios de pago, totales, referencias\u2026).",
+                "properties": {
+                    "tipo": {
+                        "type": "string",
+                        "enum": [
+                            "FE",
+                            "NC",
+                            "ND",
+                            "TE",
+                            "FEC",
+                            "FEE",
+                            "REP",
+                            "MR"
+                        ]
+                    },
+                    "environment": {
+                        "type": "string",
+                        "enum": [
+                            "stag",
+                            "prod"
+                        ]
+                    },
+                    "fecha_emision": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "situacion": {
+                        "type": "string",
+                        "enum": [
+                            "normal",
+                            "contingencia",
+                            "sininternet"
+                        ]
+                    },
+                    "callback_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "maxLength": 500
+                    },
+                    "condicion_venta": {
+                        "type": "string"
+                    },
+                    "medios_pago": {
+                        "type": "string"
+                    },
+                    "detalles": {
+                        "type": "string"
+                    },
+                    "total_ventas": {
+                        "type": "string"
+                    },
+                    "total_ventas_neta": {
+                        "type": "string"
+                    },
+                    "total_comprobante": {
+                        "type": "string"
+                    },
+                    "receptor_nombre": {
+                        "type": "string"
+                    },
+                    "receptor_tipo_identif": {
+                        "type": "string"
+                    },
+                    "receptor_num_identif": {
+                        "type": "string"
+                    },
+                    "receptor_email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "params": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "informacion_referencia": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tipoDoc": {
+                                    "type": "string",
+                                    "enum": [
+                                        "01",
+                                        "02",
+                                        "03",
+                                        "04",
+                                        "05",
+                                        "06",
+                                        "07",
+                                        "08",
+                                        "09",
+                                        "10",
+                                        "11",
+                                        "12",
+                                        "13",
+                                        "14",
+                                        "15",
+                                        "16",
+                                        "17",
+                                        "18",
+                                        "19",
+                                        "20",
+                                        "99"
+                                    ]
+                                },
+                                "tipoDocOtro": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "minLength": 5,
+                                    "maxLength": 100
+                                },
+                                "numero": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "maxLength": 50
+                                },
+                                "fechaEmision": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "codigo": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "enum": [
+                                        "01",
+                                        "02",
+                                        "04",
+                                        "05",
+                                        "06",
+                                        "07",
+                                        "08",
+                                        "09",
+                                        "10",
+                                        "11",
+                                        "12",
+                                        "13",
+                                        "14",
+                                        "15",
+                                        "16",
+                                        "17",
+                                        "99"
+                                    ]
+                                },
+                                "codigoOtro": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "minLength": 5,
+                                    "maxLength": 100
+                                },
+                                "razon": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "minLength": 3,
+                                    "maxLength": 180
+                                }
+                            },
+                            "required": [
+                                "tipoDoc",
+                                "fechaEmision"
+                            ]
+                        },
+                        "maxItems": 10
+                    }
+                },
+                "required": [
+                    "tipo"
+                ],
+                "title": "EmitDocumentRequest"
+            },
+            "LoginRequest": {
+                "type": "object",
+                "description": "Login de usuario de plataforma (master). Acepta userName o email.",
+                "properties": {
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "username",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "Product": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "company_id": {
+                        "type": "integer"
+                    },
+                    "sucursal": {
+                        "type": "string"
+                    },
+                    "nombre": {
+                        "type": "string"
+                    },
+                    "descripcion": {
+                        "type": "string"
+                    },
+                    "unidad_medida": {
+                        "type": "string"
+                    },
+                    "precio_venta": {
+                        "type": "number"
+                    },
+                    "id_impuesto": {
+                        "type": "integer"
+                    },
+                    "cantidad_impuesto": {
+                        "type": "integer"
+                    },
+                    "codigo_barras": {
+                        "type": "string"
+                    },
+                    "disponible": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id",
+                    "company_id",
+                    "sucursal",
+                    "nombre",
+                    "descripcion",
+                    "unidad_medida",
+                    "precio_venta",
+                    "id_impuesto",
+                    "cantidad_impuesto",
+                    "codigo_barras",
+                    "disponible"
+                ],
+                "title": "Product"
+            },
+            "Receiver": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "company_id": {
+                        "type": "integer"
+                    },
+                    "company_user_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "nombre_cliente": {
+                        "type": "string"
+                    },
+                    "numero_cedula": {
+                        "type": "string"
+                    },
+                    "tipo_cedula": {
+                        "type": "string"
+                    },
+                    "telefono": {
+                        "type": "string"
+                    },
+                    "id_provincia": {
+                        "type": "string"
+                    },
+                    "id_canton": {
+                        "type": "string"
+                    },
+                    "id_distrito": {
+                        "type": "string"
+                    },
+                    "id_barrio": {
+                        "type": "string"
+                    },
+                    "otras_senas": {
+                        "type": "string"
+                    },
+                    "nombre_comercial": {
+                        "type": "string"
+                    },
+                    "correo_principal": {
+                        "type": "string"
+                    },
+                    "copias_correo": {
+                        "type": "string"
+                    },
+                    "codigo_pais": {
+                        "type": "string"
+                    },
+                    "numero_fax": {
+                        "type": "string"
+                    },
+                    "estado_cliente": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "company_id",
+                    "company_user_id",
+                    "nombre_cliente",
+                    "numero_cedula",
+                    "tipo_cedula",
+                    "telefono",
+                    "id_provincia",
+                    "id_canton",
+                    "id_distrito",
+                    "id_barrio",
+                    "otras_senas",
+                    "nombre_comercial",
+                    "correo_principal",
+                    "copias_correo",
+                    "codigo_pais",
+                    "numero_fax",
+                    "estado_cliente",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "Receiver"
+            },
+            "RegisterRequest": {
+                "type": "object",
+                "description": "Registro de un usuario de plataforma (master) con su empresa.",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "username": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 100
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    },
+                    "company_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "full_name",
+                    "username",
+                    "email",
+                    "password"
+                ],
+                "title": "RegisterRequest"
+            },
+            "Terminal": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "company_id": {
+                        "type": "integer"
+                    },
+                    "branch_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "nombre_terminal": {
+                        "type": "string"
+                    },
+                    "terminal": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "company_id",
+                    "branch_id",
+                    "nombre_terminal",
+                    "terminal"
+                ],
+                "title": "Terminal"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthenticationException": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthorizationException": {
+                "description": "Authorization error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ModelNotFoundException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

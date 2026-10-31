@@ -2,6 +2,7 @@
 
 namespace App\Services\Hacienda;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -74,5 +75,39 @@ class TokenService
         }
 
         return json_decode($response->body());
+    }
+
+    /**
+     * Access token vigente para las credenciales ATV, reutilizado entre
+     * peticiones: el IdP lo emite por 5 minutos (Anexo 3) y pedir uno nuevo
+     * en cada emisión y consulta es carga inútil contra Hacienda. La caché
+     * guarda solo el token, bajo una llave derivada de las credenciales.
+     */
+    public function accessToken(string $clientId, string $username, string $password): ?string
+    {
+        $key = 'hacienda:token:'.$clientId.':'.hash('sha256', $username.'|'.$password);
+
+        $cached = Cache::get($key);
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        $response = $this->requestToken([
+            'client_id' => $clientId,
+            'grant_type' => 'password',
+            'username' => $username,
+            'password' => $password,
+        ]);
+
+        $token = is_object($response) ? ($response->access_token ?? null) : null;
+        if (! is_string($token) || $token === '') {
+            return null;
+        }
+
+        // Margen de 30 s sobre expires_in (300 s en Hacienda) y tope de 270 s.
+        $ttl = max(30, min((int) ($response->expires_in ?? 300) - 30, 270));
+        Cache::put($key, $token, $ttl);
+
+        return $token;
     }
 }

@@ -52,7 +52,9 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Minutos de vida de los tokens emitidos; null = no expiran (comportamiento
+    // histórico). En una instancia privada conviene SANCTUM_EXPIRATION=1440.
+    'expiration' => env('SANCTUM_EXPIRATION') !== null ? (int) env('SANCTUM_EXPIRATION') : null,
 
     /*
     |--------------------------------------------------------------------------

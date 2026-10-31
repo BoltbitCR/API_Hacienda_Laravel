@@ -9,4 +9,6 @@ class StoredFile extends Model
     protected $table = 'stored_files';
 
     protected $guarded = [];
+
+    protected $casts = ['encrypted' => 'boolean'];
 }

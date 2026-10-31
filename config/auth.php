@@ -6,6 +6,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registro abierto de usuarios master
+    |--------------------------------------------------------------------------
+    | POST /api/v1/auth/register crea una cuenta y su empresa sin más requisito
+    | que el rate limit. En una instancia privada (un solo emisor) conviene
+    | apagarlo una vez creada la cuenta: AUTH_REGISTRATION_ENABLED=false.
+    */
+
+    'registration_enabled' => (bool) env('AUTH_REGISTRATION_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Authentication Defaults
     |--------------------------------------------------------------------------
     |

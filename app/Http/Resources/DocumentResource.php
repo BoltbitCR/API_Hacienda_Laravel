@@ -22,6 +22,10 @@ class DocumentResource extends JsonResource
             'consecutivo' => $this->consecutivo,
             'tipo_documento' => $this->tipo_documento,
             'estado' => $this->estado,
+            // HTTP de la recepción de Hacienda (202 recibido, 400 rechazado,
+            // 0 sin conexión); null en comprobantes anteriores a la columna.
+            'recepcion_status' => $this->recepcion_status,
+            'mensaje_error' => $this->mensaje_error,
             'environment' => $this->env,
             'fecha_creacion' => optional($this->fecha_creacion)->toIso8601String(),
         ];

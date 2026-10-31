@@ -12,8 +12,11 @@ name: api_hacienda
 
 services:
   app:
+    # Sin API_IMAGE se construye localmente; con API_IMAGE (p. ej. la imagen
+    # publicada en GHCR por .github/workflows/docker-publish.yml) basta
+    # `docker compose pull && docker compose up -d`.
     build: .
-    image: api-hacienda:prod
+    image: ${API_IMAGE:-api-hacienda:prod}
     restart: unless-stopped
     env_file: .env
     mem_limit: 512m

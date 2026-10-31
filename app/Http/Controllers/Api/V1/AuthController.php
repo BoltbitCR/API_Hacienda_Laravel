@@ -40,6 +40,8 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
+        abort_unless(config('auth.registration_enabled'), 403, 'El registro de cuentas está deshabilitado en esta instalación.');
+
         $user = User::create([
             'full_name' => $request->string('full_name')->value(),
             'user_name' => $request->string('username')->value(),
