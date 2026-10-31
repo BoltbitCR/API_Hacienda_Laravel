@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\EmitDocumentRequest;
+use App\Http\Resources\DocumentDetailResource;
 use App\Http\Resources\DocumentResource;
 use App\Http\Support\ActingCompany;
 use App\Models\Company;
 use App\Models\Document;
 use App\Models\HaciendaCredential;
 use App\Services\Emission\DocumentEmissionService;
+use App\Services\Emission\DuplicateDocumentException;
 use App\Services\Emission\EmissionException;
 use App\Services\Hacienda\ComprobantesClient;
 use App\Services\Hacienda\StatusClient;
@@ -30,6 +32,7 @@ class DocumentController extends Controller
     public function __construct(
         private readonly DocumentEmissionService $emission,
         private readonly StatusClient $status,
+        private readonly TokenService $tokens,
     ) {}
 
     /**
@@ -51,19 +54,35 @@ class DocumentController extends Controller
 
     /**
      * Emite un nuevo comprobante electrónico.
+     *
+     * Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la
+     * petición devuelve 200 con el comprobante ya emitido en vez de emitir
+     * otro. Una clave que ya llegó a Hacienda responde 409.
      */
     public function store(EmitDocumentRequest $request): JsonResponse
     {
         $company = ActingCompany::for($request->user());
         abort_if($company === null, 403, 'Sin empresa asociada.');
 
+        $idempotencyKey = $this->idempotencyKey($request);
+
+        if ($idempotencyKey !== null) {
+            $previo = Document::where('company_id', $company->id)->where('idempotency_key', $idempotencyKey)->first();
+            if ($previo !== null) {
+                return response()->json($this->replay($previo), 200);
+            }
+        }
+
         try {
             $result = $this->emission->emit(
                 company: $company,
                 tipo: $request->string('tipo')->value(),
                 documentParams: $request->documentParams(),
-                environment: $request->string('environment')->value() ?: ($company->env === 'api-prod' ? 'prod' : 'stag'),
+                environment: $this->environment($request, $company),
+                idempotencyKey: $idempotencyKey,
             );
+        } catch (DuplicateDocumentException $e) {
+            return response()->json(['message' => $e->getMessage(), 'document_id' => $e->documentId], 409);
         } catch (EmissionException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -72,17 +91,44 @@ class DocumentController extends Controller
     }
 
     /**
-     * Muestra un comprobante de la empresa.
+     * Genera y firma el comprobante y lo valida contra el XSD oficial v4.4
+     * sin consumir consecutivo ni enviarlo a Hacienda. Mismo cuerpo que la
+     * emisión; responde `valid`, `errors` y el XML sin firmar.
+     */
+    public function validate(EmitDocumentRequest $request): JsonResponse
+    {
+        $company = ActingCompany::for($request->user());
+        abort_if($company === null, 403, 'Sin empresa asociada.');
+
+        try {
+            $result = $this->emission->validateOnly(
+                company: $company,
+                tipo: $request->string('tipo')->value(),
+                documentParams: $request->documentParams(),
+                environment: $this->environment($request, $company),
+            );
+        } catch (EmissionException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * Muestra un comprobante de la empresa, con el XML enviado y la
+     * respuesta de Hacienda (MensajeHacienda) si ya se consultó.
      */
     public function show(Request $request, Document $document): JsonResponse
     {
         $this->authorizeCompany($request, $document);
 
-        return DocumentResource::make($document)->response();
+        return DocumentDetailResource::make($document)->response();
     }
 
     /**
-     * Consulta el estado del comprobante en Hacienda y lo actualiza.
+     * Consulta el estado del comprobante en Hacienda y lo actualiza. Guarda
+     * también el MensajeHacienda (`respuesta-xml`), que es el respaldo
+     * fiscal del aceptado o rechazado.
      */
     public function status(Request $request, Document $document): JsonResponse
     {
@@ -98,10 +144,14 @@ class DocumentController extends Controller
         $result = $this->status->consultar($document->clave, $document->env, (string) $token);
 
         if (is_object($result) && isset($result->{'ind-estado'})) {
-            $document->update(['estado' => $result->{'ind-estado'}]);
+            $cambios = ['estado' => $result->{'ind-estado'}];
+            if (is_string($result->{'respuesta-xml'} ?? null) && $result->{'respuesta-xml'} !== '') {
+                $cambios['respuesta_mh_base64'] = $result->{'respuesta-xml'};
+            }
+            $document->update($cambios);
         }
 
-        return response()->json(['document' => DocumentResource::make($document), 'hacienda' => $result]);
+        return response()->json(['document' => DocumentDetailResource::make($document), 'hacienda' => $result]);
     }
 
     private function authorizeCompany(Request $request, Document $document): void
@@ -189,6 +239,38 @@ class DocumentController extends Controller
         ]);
     }
 
+    private function environment(Request $request, Company $company): string
+    {
+        return $request->string('environment')->value() ?: ($company->env === 'api-prod' ? 'prod' : 'stag');
+    }
+
+    private function idempotencyKey(Request $request): ?string
+    {
+        $key = trim((string) $request->header('Idempotency-Key', ''));
+        abort_if(mb_strlen($key) > 100, 422, 'Idempotency-Key admite como máximo 100 caracteres.');
+
+        return $key !== '' ? $key : null;
+    }
+
+    /**
+     * Respuesta de una emisión repetida con la misma Idempotency-Key: lo que
+     * ya se emitió, sin tocar Hacienda ni la numeración.
+     *
+     * @return array<string, mixed>
+     */
+    private function replay(Document $document): array
+    {
+        return [
+            'clave' => $document->clave,
+            'consecutivo' => $document->consecutivo,
+            'xmlFirmado' => $document->xml_enviado_base64,
+            'document_id' => $document->id,
+            'estado' => $document->estado,
+            'recepcion' => ['status' => $document->recepcion_status, 'causa' => $document->mensaje_error],
+            'idempotent_replay' => true,
+        ];
+    }
+
     /**
      * Credencial del ambiente pedido (o prod antes que stag), su client_id y
      * un token vigente.
@@ -212,15 +294,8 @@ class DocumentController extends Controller
         return [$credential, $clientId, $token];
     }
 
-    private function tokenFor($credential, string $clientId): ?string
+    private function tokenFor(HaciendaCredential $credential, string $clientId): ?string
     {
-        $response = app(TokenService::class)->requestToken([
-            'client_id' => $clientId,
-            'grant_type' => 'password',
-            'username' => (string) $credential->username,
-            'password' => (string) $credential->password,
-        ]);
-
-        return is_object($response) ? ($response->access_token ?? null) : null;
+        return $this->tokens->accessToken($clientId, (string) $credential->username, (string) $credential->password);
     }
 }
