@@ -30,7 +30,11 @@ class EmitDocumentRequest extends FormRequest
             'environment' => ['sometimes', Rule::in(['stag', 'prod'])],
 
             // Datos del documento (mismas claves que el generador v4.4).
-            'fecha_emision' => ['sometimes', 'string'],
+            'fecha_emision' => ['sometimes', 'nullable', 'string'],
+            // Situación de la clave (nota 3): por comprobante; sin ella, la de la empresa.
+            'situacion' => ['sometimes', Rule::in(['normal', 'contingencia', 'sininternet'])],
+            // URL a la que Hacienda avisa el resultado (Anexo 3, callbackUrl).
+            'callback_url' => ['sometimes', 'nullable', 'url', 'max:500'],
             // REP: solo 09/11 (nota 5); fuera del REP no se aceptan.
             'condicion_venta' => ['required_unless:tipo,MR', 'string', $this->input('tipo') === 'REP'
                 ? Rule::in(InformacionReferencia::REP_CONDICIONES_VENTA)
