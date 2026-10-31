@@ -29,7 +29,9 @@ class FirmarXmlModule implements LegacyModule
             new LegacyRoute(
                 r: 'firmar',
                 action: function (LegacyParams $p) {
-                    $pfx = (string) $this->files->findPathByDownloadCode((string) $p->get('p12Url'));
+                    // El .p12 puede estar cifrado en reposo: ruta legible temporal.
+                    $stored = $this->files->findByDownloadCode((string) $p->get('p12Url'));
+                    $pfx = (string) ($stored ? $this->files->readablePath($stored) : '');
                     $pin = (string) $p->get('pinP12');
                     $xml = base64_decode((string) $p->get('inXml'));
 
@@ -37,6 +39,8 @@ class FirmarXmlModule implements LegacyModule
                         $base64 = $this->signer->signToBase64($pfx, $pin, (string) $xml);
                     } catch (\Throwable) {
                         return LegacyResponse::plainDie('');
+                    } finally {
+                        $this->files->discardTemp($pfx);
                     }
 
                     return ['xmlFirmado' => $base64];

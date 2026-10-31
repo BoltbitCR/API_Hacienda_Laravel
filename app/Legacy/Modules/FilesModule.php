@@ -35,12 +35,13 @@ class FilesModule implements LegacyModule
                 action: function (LegacyParams $p) {
                     $file = $this->files->findByDownloadCode((string) $p->get('code', ''));
                     $path = $file ? storage_path('app/'.$file->path) : null;
+                    $contents = $file ? $this->files->readContents($file) : null;
 
-                    if ($path === null || ! is_file($path)) {
+                    if ($path === null || $contents === null) {
                         return '-405'; // ERROR_FILES_NOT_FOUND
                     }
 
-                    return new Response(file_get_contents($path), 200, [
+                    return new Response($contents, 200, [
                         'Content-Type' => mime_content_type($path) ?: 'application/octet-stream',
                         'Content-Disposition' => 'filename='.time().basename($path),
                     ]);

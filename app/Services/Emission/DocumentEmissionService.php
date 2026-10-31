@@ -9,6 +9,7 @@ use App\Models\Document;
 use App\Models\HaciendaCredential;
 use App\Models\StoredFile;
 use App\Services\Clave\ClaveService;
+use App\Services\Files\FileStorageService;
 use App\Services\Hacienda\ReceptionClient;
 use App\Services\Hacienda\TokenService;
 use App\Services\Signature\XadesSignerService;
@@ -44,6 +45,7 @@ class DocumentEmissionService
         private readonly XadesSignerService $signer,
         private readonly TokenService $tokens,
         private readonly ReceptionClient $reception,
+        private readonly FileStorageService $files,
     ) {}
 
     public static function supportedTypes(): array
@@ -197,9 +199,10 @@ class DocumentEmissionService
     private function p12Path(Company $company, HaciendaCredential $credential): string
     {
         $file = StoredFile::where('download_code', $credential->p12_download_code)->first();
-        $path = $file ? storage_path('app/'.$file->path) : null;
+        // Ruta legible: la real, o un temporal descifrado si está cifrado en reposo.
+        $path = $file ? $this->files->readablePath($file) : null;
 
-        if ($path === null || ! is_file($path)) {
+        if ($path === null) {
             throw new EmissionException('No se encontró el certificado .p12 de la empresa.');
         }
 
