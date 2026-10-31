@@ -36,6 +36,9 @@ class CompanyController extends Controller
             'fax_numero' => ['sometimes', 'string', 'max:20'],
             'tipo_cedula' => ['sometimes', 'string', 'max:10'],
             'cedula' => ['sometimes', 'string', 'max:20'],
+            // Cédula del proveedor del sistema de facturación (ProveedorSistemas);
+            // vacía = desarrollo propio (se usa la del emisor).
+            'proveedor_sistemas' => ['sometimes', 'nullable', 'string', 'max:20'],
             'id_provincia' => ['sometimes', 'string', 'max:10'],
             'id_canton' => ['sometimes', 'string', 'max:10'],
             'id_distrito' => ['sometimes', 'string', 'max:10'],
