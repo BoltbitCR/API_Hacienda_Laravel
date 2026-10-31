@@ -43,11 +43,15 @@ test('la firma tiene la misma estructura XAdES que la del legacy', function () {
     $legacyResp = json_decode($legacyFixture->expectedBody, true);
     $legacySigned = base64_decode($legacyResp['resp']['xmlFirmado']);
 
+    // Solo el subárbol ds:Signature: el XML firmado cambia cuando cambia el
+    // generador (p. ej. el teléfono del emisor), la estructura XAdES no.
     $shape = function (string $xml): array {
         $doc = new DOMDocument;
         $doc->loadXML($xml);
+        $xp = new DOMXPath($doc);
+        $xp->registerNamespace('ds', 'http://www.w3.org/2000/09/xmldsig#');
         $names = [];
-        foreach ((new DOMXPath($doc))->query('//*') as $node) {
+        foreach ($xp->query('//ds:Signature/descendant-or-self::*') as $node) {
             $names[] = $node->nodeName;
         }
 
