@@ -48,6 +48,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Validar contra el XSD antes de enviar
+    |--------------------------------------------------------------------------
+    | Con true, el XML firmado se valida contra el XSD oficial v4.4 y, si no
+    | cumple, la emisión responde 422 sin enviarlo a Hacienda (queda
+    | registrada en `documents` con estado error). Apagado por defecto para
+    | no cambiar el comportamiento de las instalaciones existentes;
+    | POST /api/v1/documents/validate está siempre disponible.
+    */
+
+    'xsd_before_send' => (bool) env('HACIENDA_XSD_BEFORE_SEND', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Política de firma XAdES-EPES (formato v4.4)
     |--------------------------------------------------------------------------
     | Antes hardcodeada en el fork de xmlseclibs

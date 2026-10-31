@@ -77,5 +77,8 @@ Route::prefix('v1')->group(function () {
         Route::middleware('throttle:10,1')
             ->get('hacienda/comprobantes', [DocumentController::class, 'comprobantes']);
         Route::middleware('throttle:60,1')->post('documents', [DocumentController::class, 'store']);
+
+        // Validación contra el XSD oficial sin consumir consecutivo ni enviar.
+        Route::middleware('throttle:60,1')->post('documents/validate', [DocumentController::class, 'validate']);
     });
 });
