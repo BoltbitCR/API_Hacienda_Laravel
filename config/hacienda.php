@@ -4,16 +4,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Ambiente por defecto
-    |--------------------------------------------------------------------------
-    | "stag" (sandbox) o "prod". En el API legacy el ambiente viaja por
-    | request vía client_id (api-stag | api-prod); esto es solo el default.
-    */
-
-    'environment' => env('HACIENDA_ENV', 'stag'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Endpoints del Ministerio de Hacienda
     |--------------------------------------------------------------------------
     | Antes hardcodeados en legacy/api/contrib/send/send.php y token/mhToken.php.
@@ -65,12 +55,14 @@ return [
     |--------------------------------------------------------------------------
     | Antes hardcodeada en el fork de xmlseclibs
     | (legacy/api/contrib/firmarXML/xmlseclibs/src/XMLSecurityDSig.php).
+    | Vacías = la política oficial que trae crlibre/xades-xmlseclibs. Solo
+    | cambiarlas si Hacienda publica otra resolución: url y digest (SHA-256
+    | del PDF en base64) van juntos, o la recepción rechaza la firma.
     */
 
     'sign_policy' => [
-        'version' => 'v4.4',
-        'url' => env('HACIENDA_POLICY_URL', 'https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.4/Resolucion_Comprobantes_Electronicos_DGT-R-033-2019_4.4.pdf'),
-        'digest' => env('HACIENDA_POLICY_DIGEST', ''),
+        'url' => env('HACIENDA_POLICY_URL'),
+        'digest' => env('HACIENDA_POLICY_DIGEST'),
     ],
 
     /*
@@ -79,14 +71,10 @@ return [
     |--------------------------------------------------------------------------
     | enabled: el endpoint /api.php solo responde si se activa de forma
     | explícita; apagado (default) devuelve 404.
-    | open_endpoints: si true (default, comportamiento histórico) los
-    | endpoints de facturación (genXML, firmar, send, token…) no requieren
-    | autenticación propia del API.
     */
 
     'legacy' => [
         'enabled' => (bool) env('LEGACY_API_ENABLED', false),
-        'open_endpoints' => env('LEGACY_OPEN_ENDPOINTS', true),
         'crypto_key' => env('LEGACY_CRYPTO_KEY', ''),
         // Vida de sesión legacy en segundos (variable sessionLifetime del
         // .env viejo). -1 replica el bug histórico: nunca valida.

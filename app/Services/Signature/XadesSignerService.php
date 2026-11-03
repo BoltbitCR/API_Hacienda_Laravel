@@ -32,7 +32,7 @@ class XadesSignerService
         $objSec = new XMLSecurityDSig;
         $objSec->xmlFirstChild = $doc->firstChild;
 
-        $objSec->setSignPolicy(config('hacienda.sign_policy_override'));
+        $objSec->setSignPolicy(array_filter((array) config('hacienda.sign_policy'), 'filled'));
 
         $certInfo = $objSec->loadCertInfo($p12Path, $pin);
 
