@@ -4,6 +4,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es/1.1.0/). Los cambios d
 contrato de la API REST v1 se marcan con **[contrato]**: son aditivos salvo que se
 indique lo contrario.
 
+## Sin publicar
+
+### Corregido
+- `HACIENDA_POLICY_URL` y `HACIENDA_POLICY_DIGEST` ahora cambian la política de firma
+  XAdES (el firmador leía una clave de config inexistente). Sin definirlas se usa la
+  política oficial v4.4, como hasta ahora (#26).
+
+### Eliminado
+- Variables `HACIENDA_ENV` y `LEGACY_OPEN_ENDPOINTS`: ningún código las leía. El
+  ambiente sale de `environment` en la petición o de la empresa; las rutas legacy de
+  facturación siguen abiertas como en el original (#26).
+
 ## Sin publicar — rama `audit/v4.4-2026-11`
 
 ### Corregido
