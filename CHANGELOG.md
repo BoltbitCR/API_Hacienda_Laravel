@@ -7,6 +7,12 @@ indique lo contrario.
 ## Sin publicar
 
 ### Corregido
+- **[contrato]** `POST /documents` ya no responde `201` si Hacienda no recibió el
+  comprobante. **No aditivo**: recepción `202` → `201`; `400` → `422` con `message` (la
+  causa), `document_id`, `clave`, `estado: rechazado` y `recepcion`; sin conexión o
+  `5xx` → `502` con `estado: error`: reintentar con el mismo `consecutivo` está
+  permitido. El cuerpo es el mismo de siempre más `message`. El replay por
+  `Idempotency-Key` sigue el mismo criterio (`200` en vez de `201`) (#53).
 - **[contrato]** `GET /documents/{id}/status` ya no responde `200` cuando no hay estado:
   `502` si no se pudo consultar Hacienda (sin conexión, `5xx` u otro error, con la causa
   en `message`) y `404` si Hacienda no tiene la clave (`404` o cuerpo vacío). El estado

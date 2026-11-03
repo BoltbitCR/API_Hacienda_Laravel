@@ -56,9 +56,15 @@ class DocumentController extends Controller
     /**
      * Emite un nuevo comprobante electrónico.
      *
+     * El código refleja lo que respondió la recepción de Hacienda: 201 si
+     * lo recibió (202); 422 si lo rechazó (400, causa en `recepcion.causa`);
+     * 502 si no lo recibió (sin conexión o 5xx) — el comprobante queda en
+     * `estado: error` y se puede reintentar con el mismo `consecutivo`.
+     *
      * Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la
-     * petición devuelve 200 con el comprobante ya emitido en vez de emitir
-     * otro. Una clave que ya llegó a Hacienda responde 409.
+     * petición devuelve el comprobante ya emitido en vez de emitir otro, con
+     * el mismo criterio (200 en vez de 201). Una clave que ya llegó a
+     * Hacienda responde 409.
      *
      * Si el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir
      * consecutivo; credenciales rechazadas por el IdP, 422.
@@ -75,7 +81,7 @@ class DocumentController extends Controller
         if ($idempotencyKey !== null) {
             $previo = Document::where('company_id', $company->id)->where('idempotency_key', $idempotencyKey)->first();
             if ($previo !== null) {
-                return response()->json($this->replay($previo), 200);
+                return $this->respuestaEmision($this->replay($previo), $previo->recepcion_status, $previo->estado, replay: true);
             }
         }
 
@@ -93,7 +99,30 @@ class DocumentController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json($result, 201);
+        return $this->respuestaEmision($result, $result['recepcion']['status'], $result['estado']);
+    }
+
+    /**
+     * Respuesta de una emisión según la recepción: 201 (200 en un replay) si
+     * Hacienda lo recibió, 422 si lo rechazó o falló antes de enviarse y
+     * 502 si no lo recibió. Los errores llevan `message` además del cuerpo.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    private function respuestaEmision(array $body, int|string|null $recepcion, ?string $estado, bool $replay = false): JsonResponse
+    {
+        $recepcion = $recepcion === null ? null : (int) $recepcion;
+        $causa = $body['recepcion']['causa'] ?? null;
+
+        return match (true) {
+            $recepcion === 202, $recepcion === null && $estado !== DocumentEmissionService::ESTADO_ERROR => $replay
+                ? response()->json($body, 200)
+                : response()->json($body, 201),
+            $recepcion === 400 => response()->json(['message' => $causa ?? 'Hacienda rechazó el comprobante en la recepción.', ...$body], 422),
+            // Sin recepción y en error: falló antes de enviarse, como la emisión original.
+            $recepcion === null => response()->json(['message' => $causa ?? 'La emisión falló antes de enviarse a Hacienda.', ...$body], 422),
+            default => response()->json(['message' => 'Hacienda no recibió el comprobante'.($causa ? " ($causa)" : '').'; se puede reintentar con el mismo consecutivo.', ...$body], 502),
+        };
     }
 
     /**
