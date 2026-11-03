@@ -7,6 +7,11 @@ indique lo contrario.
 ## Sin publicar
 
 ### Corregido
+- **[contrato]** `GET /api/v1/catalogs/id-types` devuelve los códigos `01`–`06` de
+  `Identificacion/Tipo` del XML v4.4 (`{codigo, descripcion}`) en vez de la tabla
+  heredada (`fisico`, `juridico`…, sin `id`). **No aditivo**: quien usaba el `codigo`
+  viejo recibe ahora el número. La emisión REST convierte los nombres heredados de la
+  empresa y del receptor al código; `facturador/get_type_of_id` no cambia (#27).
 - `HACIENDA_POLICY_URL` y `HACIENDA_POLICY_DIGEST` ahora cambian la política de firma
   XAdES (el firmador leía una clave de config inexistente). Sin definirlas se usa la
   política oficial v4.4, como hasta ahora (#26).
