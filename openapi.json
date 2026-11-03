@@ -1049,7 +1049,7 @@
             },
             "post": {
                 "operationId": "document.store",
-                "description": "Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la\npetici\u00f3n devuelve 200 con el comprobante ya emitido en vez de emitir\notro. Una clave que ya lleg\u00f3 a Hacienda responde 409.",
+                "description": "Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la\npetici\u00f3n devuelve 200 con el comprobante ya emitido en vez de emitir\notro. Una clave que ya lleg\u00f3 a Hacienda responde 409.\n\nSi el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir\nconsecutivo; credenciales rechazadas por el IdP, 422.",
                 "summary": "Emite un nuevo comprobante electr\u00f3nico",
                 "tags": [
                     "Document"
@@ -1271,6 +1271,25 @@
                             }
                         }
                     },
+                    "503": {
+                        "description": "Service unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
                     }
@@ -1398,7 +1417,44 @@
                         }
                     },
                     "422": {
-                        "description": "An error",
+                        "description": "An error\n\nAn error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "description": "Error overview.",
+                                                    "example": "Sin credenciales para consultar."
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "description": "Error overview.",
+                                                    "example": "Las credenciales guardadas no autenticaron contra Hacienda."
+                                                }
+                                            },
+                                            "required": [
+                                                "message"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service unavailable",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1406,8 +1462,7 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "description": "Error overview.",
-                                            "example": "Sin credenciales para consultar."
+                                            "description": "Error overview."
                                         }
                                     },
                                     "required": [
@@ -1541,6 +1596,25 @@
                     },
                     "502": {
                         "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service unavailable",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1969,9 +2043,7 @@
                             "application/json": {
                                 "schema": {
                                     "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "items": {}
                                 }
                             }
                         }
