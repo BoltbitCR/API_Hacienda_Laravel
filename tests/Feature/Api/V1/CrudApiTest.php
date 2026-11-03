@@ -35,6 +35,17 @@ test('los catálogos geográficos son públicos', function () {
     $this->getJson('/api/v1/catalogs/measure-units')->assertOk();
 });
 
+test('catalogs/id-types devuelve los códigos 01–06 del XML v4.4', function () {
+    $this->getJson('/api/v1/catalogs/id-types')->assertOk()->assertExactJson([
+        ['codigo' => '01', 'descripcion' => 'Cédula Física'],
+        ['codigo' => '02', 'descripcion' => 'Cédula Jurídica'],
+        ['codigo' => '03', 'descripcion' => 'DIMEX'],
+        ['codigo' => '04', 'descripcion' => 'NITE'],
+        ['codigo' => '05', 'descripcion' => 'Extranjero No Domiciliado'],
+        ['codigo' => '06', 'descripcion' => 'No Contribuyente'],
+    ]);
+});
+
 test('CRUD de receptores respeta la empresa del token', function () {
     [$token, $company] = ownerToken();
 
