@@ -2,6 +2,8 @@
 
 namespace App\Services\Hacienda;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -64,10 +66,7 @@ class TokenService
         }
 
         try {
-            $response = Http::asForm()
-                ->withOptions(['verify' => $this->env->verifySsl()])
-                ->timeout($this->env->timeout())
-                ->post((string) $url, $data);
+            $response = $this->post((string) $url, $data);
         } catch (\Throwable $e) {
             // El legacy con url null / error de red devolvía resp null
             // (json_decode de false). Errores curl reales: {Status, text}.
@@ -82,6 +81,11 @@ class TokenService
      * peticiones: el IdP lo emite por 5 minutos (Anexo 3) y pedir uno nuevo
      * en cada emisión y consulta es carga inútil contra Hacienda. La caché
      * guarda solo el token, bajo una llave derivada de las credenciales.
+     *
+     * null = el IdP rechazó las credenciales (o faltan); un IdP caído no es
+     * un problema de credenciales y lanza HaciendaUnavailableException.
+     *
+     * @throws HaciendaUnavailableException si el IdP no responde, responde 5xx o 429.
      */
     public function accessToken(string $clientId, string $username, string $password): ?string
     {
@@ -92,22 +96,45 @@ class TokenService
             return $cached;
         }
 
-        $response = $this->requestToken([
-            'client_id' => $clientId,
-            'grant_type' => 'password',
-            'username' => $username,
-            'password' => $password,
-        ]);
+        $url = $this->env->idpUrl($clientId);
+        if ($url === null || $username === '' || $password === '') {
+            return null;
+        }
 
-        $token = is_object($response) ? ($response->access_token ?? null) : null;
+        try {
+            $response = $this->post($url, [
+                'client_id' => $clientId,
+                'client_secret' => '',
+                'grant_type' => 'password',
+                'username' => $username,
+                'password' => $password,
+            ]);
+        } catch (ConnectionException $e) {
+            throw new HaciendaUnavailableException('El IdP de Hacienda no respondió; intente más tarde.', previous: $e);
+        }
+
+        if ($response->serverError() || $response->status() === 429) {
+            throw new HaciendaUnavailableException("El IdP de Hacienda respondió {$response->status()}; intente más tarde.");
+        }
+
+        $token = $response->json('access_token');
         if (! is_string($token) || $token === '') {
             return null;
         }
 
         // Margen de 30 s sobre expires_in (300 s en Hacienda) y tope de 270 s.
-        $ttl = max(30, min((int) ($response->expires_in ?? 300) - 30, 270));
+        $ttl = max(30, min((int) ($response->json('expires_in') ?? 300) - 30, 270));
         Cache::put($key, $token, $ttl);
 
         return $token;
+    }
+
+    /** @param  array<string, string>  $data */
+    private function post(string $url, array $data): Response
+    {
+        return Http::asForm()
+            ->withOptions(['verify' => $this->env->verifySsl()])
+            ->timeout($this->env->timeout())
+            ->post($url, $data);
     }
 }

@@ -7,6 +7,12 @@ indique lo contrario.
 ## Sin publicar
 
 ### Corregido
+- **[contrato]** IdP de Hacienda caído (sin respuesta, `5xx` o `429`) → `503` con
+  `Retry-After: 60` en `POST /documents`, `GET /documents/{id}/status`,
+  `GET /hacienda/status` y `GET /comprobantes`; antes salía `422` y el cliente
+  descartaba una emisión que iba a funcionar. Credenciales rechazadas por el IdP siguen
+  en `422`. La emisión no consume consecutivo en ningún caso. `GET /documents/{id}/status`
+  sin token ya no consulta Hacienda con token vacío: responde `422` (#51).
 - **[contrato]** `GET /api/v1/catalogs/id-types` devuelve los códigos `01`–`06` de
   `Identificacion/Tipo` del XML v4.4 (`{codigo, descripcion}`) en vez de la tabla
   heredada (`fisico`, `juridico`…, sin `id`). **No aditivo**: quien usaba el `codigo`

@@ -14,6 +14,7 @@ use App\Services\Emission\DocumentEmissionService;
 use App\Services\Emission\DuplicateDocumentException;
 use App\Services\Emission\EmissionException;
 use App\Services\Hacienda\ComprobantesClient;
+use App\Services\Hacienda\HaciendaUnavailableException;
 use App\Services\Hacienda\StatusClient;
 use App\Services\Hacienda\TokenService;
 use Illuminate\Http\Client\ConnectionException;
@@ -58,6 +59,11 @@ class DocumentController extends Controller
      * Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la
      * petición devuelve 200 con el comprobante ya emitido en vez de emitir
      * otro. Una clave que ya llegó a Hacienda responde 409.
+     *
+     * Si el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir
+     * consecutivo; credenciales rechazadas por el IdP, 422.
+     *
+     * @throws HaciendaUnavailableException
      */
     public function store(EmitDocumentRequest $request): JsonResponse
     {
@@ -129,6 +135,8 @@ class DocumentController extends Controller
      * Consulta el estado del comprobante en Hacienda y lo actualiza. Guarda
      * también el MensajeHacienda (`respuesta-xml`), que es el respaldo
      * fiscal del aceptado o rechazado.
+     *
+     * @throws HaciendaUnavailableException
      */
     public function status(Request $request, Document $document): JsonResponse
     {
@@ -140,6 +148,7 @@ class DocumentController extends Controller
         abort_if($credential === null, 422, 'Sin credenciales para consultar.');
 
         $token = $this->tokenFor($credential, $document->env);
+        abort_if($token === null, 422, 'Las credenciales guardadas no autenticaron contra Hacienda.');
 
         $result = $this->status->consultar($document->clave, $document->env, (string) $token);
 
@@ -170,6 +179,8 @@ class DocumentController extends Controller
      *
      * Sin `environment` se usa producción si la empresa tiene esas
      * credenciales; si no, las de staging.
+     *
+     * @throws HaciendaUnavailableException
      */
     public function statusByClave(Request $request): JsonResponse
     {
