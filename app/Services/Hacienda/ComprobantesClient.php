@@ -42,6 +42,7 @@ class ComprobantesClient
         for ($page = 0; $page < self::MAX_PAGES; $page++) {
             $response = Http::withToken($token)
                 ->withOptions(['verify' => $this->env->verifySsl()])
+                ->connectTimeout($this->env->connectTimeout())
                 ->timeout($this->env->timeout())
                 ->get($url, ['emisor' => $emisor, 'offset' => $page * self::PAGE_SIZE, 'limit' => self::PAGE_SIZE]);
 

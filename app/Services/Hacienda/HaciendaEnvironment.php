@@ -45,4 +45,9 @@ class HaciendaEnvironment
     {
         return (int) config('hacienda.timeout', 60);
     }
+
+    public function connectTimeout(): int
+    {
+        return (int) config('hacienda.connect_timeout', 10);
+    }
 }
