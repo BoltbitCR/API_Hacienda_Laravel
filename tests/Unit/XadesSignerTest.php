@@ -70,6 +70,17 @@ test('la política de firma v4.4 está presente', function () {
         ->toContain('DWxin1xWOeI8OuWQXazh4VjLWAaCLAA954em7DMh0h8=');
 });
 
+test('HACIENDA_POLICY_URL/DIGEST reemplazan la política de firma', function () {
+    config(['hacienda.sign_policy' => ['url' => 'https://example.test/politica.pdf', 'digest' => 'cHJ1ZWJh']]);
+
+    $signed = app(XadesSignerService::class)->sign(TEST_P12, TEST_PIN, goldenFeXml());
+
+    expect($signed)
+        ->toContain('<xades:Identifier>https://example.test/politica.pdf</xades:Identifier>')
+        ->toContain('cHJ1ZWJh')
+        ->not->toContain('DWxin1xWOeI8OuWQXazh4VjLWAaCLAA954em7DMh0h8=');
+});
+
 test('rechaza documentos que no son v4.4', function () {
     $xml = '<?xml version="1.0"?><FacturaElectronica xmlns="https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica"><Clave>1</Clave></FacturaElectronica>';
 
