@@ -7,6 +7,13 @@ indique lo contrario.
 ## Sin publicar
 
 ### Agregado
+- **[contrato]** Repetir `POST /documents` con la misma `Idempotency-Key` reintenta lo
+  que Hacienda no recibió en vez de devolver el error para siempre: si la recepción
+  respondió `0`/`5xx`, reenvía el **mismo XML firmado** (misma clave y consecutivo, token
+  nuevo; responde `reenviado: true`); si falló antes de firmarse, lo vuelve a emitir con
+  el mismo consecutivo (el intento fallido queda como historial sin la clave). Lo que
+  Hacienda recibió (`202`) o rechazó (`400`) sigue siendo un replay que no la toca. Dos
+  peticiones simultáneas con la misma clave → `409` (#55).
 - `HACIENDA_CONNECT_TIMEOUT` (default `10` s): tiempo máximo para conectar con
   Hacienda en todas las llamadas (IdP, recepción, consulta y listado). Con Hacienda
   caída cada petición falla en segundos en vez de esperar `HACIENDA_TIMEOUT` (60 s) por

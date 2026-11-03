@@ -85,9 +85,14 @@ class DocumentEmissionService
      *
      * @throws EmissionException
      */
-    public function emit(Company $company, string $tipo, array $documentParams, string $environment, ?string $idempotencyKey = null): array
+    public function emit(Company $company, string $tipo, array $documentParams, string $environment, ?string $idempotencyKey = null, ?Document $reintentoDe = null): array
     {
         $this->assertSupported($tipo);
+
+        // Reintento de un intento que no llegó a firmarse ni enviarse: mismo consecutivo.
+        if ($reintentoDe !== null) {
+            $documentParams['consecutivo'] = $reintentoDe->consecutivo;
+        }
 
         $clientId = $environment === 'prod' ? 'api-prod' : 'api-stag';
         $credential = $this->credential($company, $environment);
@@ -105,7 +110,7 @@ class DocumentEmissionService
         // 1. Consecutivo, clave y registro del intento (una sola transacción
         //    con la serie de la empresa bloqueada: dos peticiones iguales no
         //    producen dos comprobantes).
-        [$document, $claveResult] = $this->reservar($company, $tipo, $documentParams, $clientId, $idempotencyKey);
+        [$document, $claveResult] = $this->reservar($company, $tipo, $documentParams, $clientId, $idempotencyKey, $reintentoDe);
 
         try {
             // 2. XML (generador verbatim) con emisor de la empresa + datos del cliente.
@@ -152,6 +157,67 @@ class DocumentEmissionService
             'estado' => $estado,
             'recepcion' => ['status' => (int) ($envio['Status'] ?? 0), 'causa' => $causa],
         ];
+    }
+
+    /**
+     * Reenvía a la recepción el mismo XML firmado de un intento que Hacienda
+     * no recibió (sin conexión, 5xx), con la misma clave y consecutivo y un
+     * token nuevo. No genera ni firma nada.
+     *
+     * @param  array<string, mixed>  $documentParams  el cuerpo de la petición repetida
+     * @return array<string, mixed> mismos campos que emit(), sin `xml`, más `reenviado`
+     *
+     * @throws EmissionException
+     */
+    public function reenviar(Company $company, Document $document, array $documentParams): array
+    {
+        $clientId = (string) $document->env;
+        $credential = $this->credential($company, $clientId === 'api-prod' ? 'prod' : 'stag');
+        $accessToken = $this->tokens->accessToken($clientId, (string) $credential->username, (string) $credential->password);
+        if ($accessToken === null) {
+            throw new EmissionException('No se pudo obtener el token de Hacienda.');
+        }
+
+        $xmlFirmado = (string) base64_decode((string) $document->xml_enviado_base64);
+        $documentParams['fecha_emision'] = self::fechaEmisionDelXml($xmlFirmado)
+            ?? $documentParams['fecha_emision'] ?? now()->format('Y-m-d\TH:i:sP');
+
+        $envio = $this->reception->send(
+            $this->payloadRecepcion($company, (string) $document->tipo_documento, $documentParams, $document, (string) $document->consecutivo, $xmlFirmado),
+            $clientId,
+            $accessToken,
+        );
+
+        [$estado, $causa] = self::estadoRecepcion($envio);
+        $document->update([
+            'estado' => $estado,
+            'recepcion_status' => (int) ($envio['Status'] ?? 0),
+            'mensaje_error' => $causa,
+        ]);
+
+        return [
+            'clave' => $document->clave,
+            'consecutivo' => $document->consecutivo,
+            'xmlFirmado' => $document->xml_enviado_base64,
+            'envio' => $envio,
+            'document_id' => $document->id,
+            'estado' => $estado,
+            'recepcion' => ['status' => (int) ($envio['Status'] ?? 0), 'causa' => $causa],
+            'reenviado' => true,
+        ];
+    }
+
+    /** FechaEmision del comprobante firmado (la recepción lleva la misma); el MR no la tiene. */
+    private static function fechaEmisionDelXml(string $xml): ?string
+    {
+        $doc = new \DOMDocument;
+        if ($xml === '' || ! @$doc->loadXML($xml)) {
+            return null;
+        }
+
+        $nodo = $doc->getElementsByTagName('FechaEmision')->item(0);
+
+        return $nodo !== null && trim($nodo->textContent) !== '' ? trim($nodo->textContent) : null;
     }
 
     /**
@@ -237,10 +303,10 @@ class DocumentEmissionService
      *
      * @return array{0: Document, 1: array{clave: string, consecutivo: string}}
      */
-    private function reservar(Company $company, string $tipo, array $documentParams, string $clientId, ?string $idempotencyKey): array
+    private function reservar(Company $company, string $tipo, array $documentParams, string $clientId, ?string $idempotencyKey, ?Document $reintentoDe = null): array
     {
         try {
-            return DB::transaction(function () use ($company, $tipo, $documentParams, $clientId, $idempotencyKey) {
+            return DB::transaction(function () use ($company, $tipo, $documentParams, $clientId, $idempotencyKey, $reintentoDe) {
                 $serie = $this->serie($company, $this->tipoSerie($tipo, $documentParams), $clientId);
 
                 $consecutivo = $documentParams['consecutivo'] ?? $this->siguiente($serie);
@@ -248,6 +314,9 @@ class DocumentEmissionService
                 $clave = $tipo === 'MR' ? (string) $documentParams['clave'] : $claveResult['clave'];
 
                 $this->assertNoDuplicado($company, $claveResult['consecutivo'], $tipo, $clientId);
+
+                // El intento fallido queda como historial; la clave pasa al nuevo.
+                $reintentoDe?->update(['idempotency_key' => null]);
 
                 $document = Document::create([
                     'company_id' => $company->id,

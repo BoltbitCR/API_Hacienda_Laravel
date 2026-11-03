@@ -20,6 +20,8 @@ use App\Services\Hacienda\TokenService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 /**
@@ -62,9 +64,12 @@ class DocumentController extends Controller
      * `estado: error` y se puede reintentar con el mismo `consecutivo`.
      *
      * Con el header `Idempotency-Key` (hasta 100 caracteres), repetir la
-     * petición devuelve el comprobante ya emitido en vez de emitir otro, con
-     * el mismo criterio (200 en vez de 201). Una clave que ya llegó a
-     * Hacienda responde 409.
+     * petición nunca emite otro comprobante: si Hacienda ya lo recibió o lo
+     * rechazó, devuelve lo emitido con el mismo criterio (200 en vez de
+     * 201); si no lo recibió, reenvía el mismo XML firmado (misma clave y
+     * consecutivo, `reenviado: true`); si falló antes de firmarse, lo vuelve
+     * a emitir con el mismo consecutivo. Con una emisión en curso con esa
+     * clave, 409. Un consecutivo que ya llegó a Hacienda responde 409.
      *
      * Si el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir
      * consecutivo; credenciales rechazadas por el IdP, 422.
@@ -77,14 +82,30 @@ class DocumentController extends Controller
         abort_if($company === null, 403, 'Sin empresa asociada.');
 
         $idempotencyKey = $this->idempotencyKey($request);
-
-        if ($idempotencyKey !== null) {
-            $previo = Document::where('company_id', $company->id)->where('idempotency_key', $idempotencyKey)->first();
-            if ($previo !== null) {
-                return $this->respuestaEmision($this->replay($previo), $previo->recepcion_status, $previo->estado, replay: true);
-            }
+        if ($idempotencyKey === null) {
+            return $this->emitir($request, $company);
         }
 
+        // Una petición a la vez por clave: dos reintentos simultáneos no
+        // pueden emitir ni reenviar dos veces.
+        $lock = Cache::lock('documents:idempotency:'.$company->id.':'.hash('sha256', $idempotencyKey), 180);
+        if (! $lock->get()) {
+            return response()->json(['message' => "Ya hay una emisión en curso con la Idempotency-Key '$idempotencyKey'."], 409);
+        }
+
+        try {
+            $previo = Document::where('company_id', $company->id)->where('idempotency_key', $idempotencyKey)->first();
+
+            return $previo === null
+                ? $this->emitir($request, $company, $idempotencyKey)
+                : $this->repetir($request, $company, $previo, $idempotencyKey);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function emitir(EmitDocumentRequest $request, Company $company, ?string $idempotencyKey = null, ?Document $reintentoDe = null): JsonResponse
+    {
         try {
             $result = $this->emission->emit(
                 company: $company,
@@ -92,6 +113,7 @@ class DocumentController extends Controller
                 documentParams: $request->documentParams(),
                 environment: $this->environment($request, $company),
                 idempotencyKey: $idempotencyKey,
+                reintentoDe: $reintentoDe,
             );
         } catch (DuplicateDocumentException $e) {
             return response()->json(['message' => $e->getMessage(), 'document_id' => $e->documentId], 409);
@@ -100,6 +122,37 @@ class DocumentController extends Controller
         }
 
         return $this->respuestaEmision($result, $result['recepcion']['status'], $result['estado']);
+    }
+
+    /**
+     * Petición repetida con la misma Idempotency-Key. Lo que Hacienda ya
+     * recibió o rechazó se devuelve sin tocarla; lo que no recibió se
+     * reenvía (mismo XML firmado) o se vuelve a emitir con el mismo
+     * consecutivo si nunca llegó a firmarse.
+     */
+    private function repetir(EmitDocumentRequest $request, Company $company, Document $previo, string $idempotencyKey): JsonResponse
+    {
+        $recepcion = $previo->recepcion_status === null ? null : (int) $previo->recepcion_status;
+
+        if ($recepcion === 202 || $recepcion === 400) {
+            return $this->respuestaEmision($this->replay($previo), $recepcion, $previo->estado, replay: true);
+        }
+
+        if ($previo->estado === DocumentEmissionService::ESTADO_GENERANDO && Carbon::parse($previo->fecha_creacion)->gt(now()->subMinutes(10))) {
+            return response()->json(['message' => "Ya hay una emisión en curso con la Idempotency-Key '$idempotencyKey'.", 'document_id' => $previo->id], 409);
+        }
+
+        if (filled($previo->xml_enviado_base64)) {
+            try {
+                $result = $this->emission->reenviar($company, $previo, $request->documentParams());
+            } catch (EmissionException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return $this->respuestaEmision($result, $result['recepcion']['status'], $result['estado']);
+        }
+
+        return $this->emitir($request, $company, $idempotencyKey, reintentoDe: $previo);
     }
 
     /**
