@@ -7,6 +7,11 @@ indique lo contrario.
 ## Sin publicar
 
 ### Corregido
+- **[contrato]** `GET /documents/{id}/status` ya no responde `200` cuando no hay estado:
+  `502` si no se pudo consultar Hacienda (sin conexión, `5xx` u otro error, con la causa
+  en `message`) y `404` si Hacienda no tiene la clave (`404` o cuerpo vacío). El estado
+  guardado no cambia en esos casos. `GET /hacienda/status` usa el mismo criterio: un
+  `5xx` de Hacienda ahora es `502`, no `404` (#52).
 - **[contrato]** IdP de Hacienda caído (sin respuesta, `5xx` o `429`) → `503` con
   `Retry-After: 60` en `POST /documents`, `GET /documents/{id}/status`,
   `GET /hacienda/status` y `GET /comprobantes`; antes salía `422` y el cliente

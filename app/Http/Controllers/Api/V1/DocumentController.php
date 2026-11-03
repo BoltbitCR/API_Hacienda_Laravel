@@ -136,6 +136,10 @@ class DocumentController extends Controller
      * también el MensajeHacienda (`respuesta-xml`), que es el respaldo
      * fiscal del aceptado o rechazado.
      *
+     * 502 si no se pudo consultar Hacienda, 404 si Hacienda no tiene la
+     * clave (nunca recibió el comprobante) y 503 si el IdP no responde; en
+     * esos casos el estado guardado no cambia.
+     *
      * @throws HaciendaUnavailableException
      */
     public function status(Request $request, Document $document): JsonResponse
@@ -150,9 +154,16 @@ class DocumentController extends Controller
         $token = $this->tokenFor($credential, $document->env);
         abort_if($token === null, 422, 'Las credenciales guardadas no autenticaron contra Hacienda.');
 
-        $result = $this->status->consultar($document->clave, $document->env, (string) $token);
+        // 502: no se pudo consultar (sin conexión, 5xx, otro error de Hacienda);
+        // 404: Hacienda no tiene la clave. Ninguno es un estado del comprobante.
+        try {
+            $result = $this->status->estado($document->clave, $document->env, $token);
+        } catch (RuntimeException $e) {
+            abort(502, $e->getMessage());
+        }
+        abort_if($result === null, 404, 'Hacienda no tiene información para esa clave.');
 
-        if (is_object($result) && isset($result->{'ind-estado'})) {
+        if (isset($result->{'ind-estado'})) {
             $cambios = ['estado' => $result->{'ind-estado'}];
             if (is_string($result->{'respuesta-xml'} ?? null) && $result->{'respuesta-xml'} !== '') {
                 $cambios['respuesta_mh_base64'] = $result->{'respuesta-xml'};
@@ -196,20 +207,13 @@ class DocumentController extends Controller
 
         [$credential, $clientId, $token] = $this->haciendaSession($company, $data['environment'] ?? null);
 
-        $result = $this->status->consultar($data['clave'], $clientId, $token);
-
-        // consultar() devuelve string ante un error de configuración y un
-        // arreglo con Status 0 si no se pudo hablar con Hacienda: ninguno
-        // de los dos es un estado del comprobante.
-        if (is_string($result)) {
-            abort(502, $result);
+        // 502: no se pudo consultar (sin conexión, 5xx, otro error de Hacienda);
+        // 404: Hacienda no tiene la clave. Ninguno es un estado del comprobante.
+        try {
+            $result = $this->status->estado($data['clave'], $clientId, $token);
+        } catch (RuntimeException $e) {
+            abort(502, $e->getMessage());
         }
-
-        if (is_array($result)) {
-            abort(502, (string) ($result['text'] ?? 'No se pudo consultar Hacienda.'));
-        }
-
-        // Body vacío o no-JSON: Hacienda no tiene esa clave registrada.
         abort_if($result === null, 404, 'Hacienda no tiene información para esa clave.');
 
         return response()->json([

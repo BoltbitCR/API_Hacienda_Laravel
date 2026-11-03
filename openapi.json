@@ -1345,6 +1345,7 @@
         "/documents/{document}/status": {
             "get": {
                 "operationId": "document.status",
+                "description": "502 si no se pudo consultar Hacienda, 404 si Hacienda no tiene la\nclave (nunca recibi\u00f3 el comprobante) y 503 si el IdP no responde; en\nesos casos el estado guardado no cambia.",
                 "summary": "Consulta el estado del comprobante en Hacienda y lo actualiza. Guarda\ntambi\u00e9n el MensajeHacienda (`respuesta-xml`), que es el respaldo\nfiscal del aceptado o rechazado",
                 "tags": [
                     "Document"
@@ -1372,39 +1373,9 @@
                                             "$ref": "#/components/schemas/DocumentDetailResource"
                                         },
                                         "hacienda": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "null"
-                                                },
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "Status": {
-                                                            "type": "integer"
-                                                        },
-                                                        "to": {
-                                                            "type": "null"
-                                                        },
-                                                        "text": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "Status",
-                                                        "to",
-                                                        "text"
-                                                    ]
-                                                },
-                                                {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "Ha ocurrido un error en el client_id.",
-                                                        "La clave no puede ser en blanco"
-                                                    ]
-                                                }
+                                            "type": [
+                                                "object",
+                                                "null"
                                             ]
                                         }
                                     },
@@ -1448,6 +1419,25 @@
                                                 "message"
                                             ]
                                         }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
                                     ]
                                 }
                             }
@@ -1529,39 +1519,9 @@
                                             "type": "string"
                                         },
                                         "hacienda": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "null"
-                                                },
-                                                {
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "Status": {
-                                                            "type": "integer"
-                                                        },
-                                                        "to": {
-                                                            "type": "null"
-                                                        },
-                                                        "text": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "Status",
-                                                        "to",
-                                                        "text"
-                                                    ]
-                                                },
-                                                {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "Ha ocurrido un error en el client_id.",
-                                                        "La clave no puede ser en blanco"
-                                                    ]
-                                                }
+                                            "type": [
+                                                "object",
+                                                "null"
                                             ]
                                         }
                                     },
