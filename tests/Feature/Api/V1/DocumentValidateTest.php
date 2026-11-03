@@ -57,3 +57,19 @@ test('con HACIENDA_XSD_BEFORE_SEND el comprobante inválido no viaja a Hacienda'
     Http::assertNotSent(fn ($req) => str_contains($req->url(), 'recepcion'));
     expect(Document::where('company_id', $company->id)->value('estado'))->toBe('error');
 });
+
+test('los tipos de identificación heredados salen como código v4.4 y validan', function () {
+    [, , $token] = emisorDePrueba(['tipo_cedula' => 'juridico']);
+    Http::fake();
+
+    $r = $this->withToken($token)->postJson('/api/v1/documents/validate', cuerpoFe([
+        'receptor_tipo_identif' => 'fisico',
+    ]))->assertOk();
+
+    $xml = base64_decode($r->json('xml'));
+    expect($r->json('valid'))->toBeTrue(implode('; ', $r->json('errors')))
+        ->and($xml)->toContain('<Tipo>02</Tipo>')
+        ->and($xml)->toContain('<Tipo>01</Tipo>')
+        ->and($xml)->not->toContain('juridico')
+        ->and($xml)->not->toContain('fisico');
+});

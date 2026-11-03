@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Services\Xml\TipoIdentificacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -54,7 +55,7 @@ class GeoController extends Controller
 
     public function idTypes(): JsonResponse
     {
-        return response()->json(DB::table('tipo_cedula')->get());
+        return response()->json(TipoIdentificacion::catalogo());
     }
 
     /**

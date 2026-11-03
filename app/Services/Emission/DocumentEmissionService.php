@@ -15,6 +15,7 @@ use App\Services\Hacienda\TokenService;
 use App\Services\Signature\XadesSignerService;
 use App\Services\Xml\Legacy\CurrentParams;
 use App\Services\Xml\Legacy\LegacyReplyKill;
+use App\Services\Xml\TipoIdentificacion;
 use App\Services\Xsd\XsdValidatorService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -388,12 +389,19 @@ class DocumentEmissionService
      */
     private function buildXml(Company $company, string $tipo, array $documentParams, string $clave, string $consecutivo): string
     {
-        $params = LegacyParams::fromArray(array_merge(
+        $merged = array_merge(
             $this->emisorParams($company),
             $documentParams,
             ['clave' => $clave, 'consecutivo' => $consecutivo],
             $tipo === 'MR' ? $this->mrParams($company, $documentParams, $consecutivo) : [],
-        ));
+        );
+        // El XSD exige el código (01–06); el catálogo heredado guarda nombres.
+        foreach (['emisor_tipo_identif', 'receptor_tipo_identif'] as $key) {
+            if (isset($merged[$key])) {
+                $merged[$key] = TipoIdentificacion::codigo((string) $merged[$key]);
+            }
+        }
+        $params = LegacyParams::fromArray($merged);
 
         require_once app_path('Services/Xml/Legacy/genxml_functions.php');
         $fn = 'App\\Services\\Xml\\Legacy\\'.self::GENERATORS[$tipo];
@@ -461,7 +469,7 @@ class DocumentEmissionService
             'clave' => $document->clave,
             'fecha' => (string) $documentParams['fecha_emision'],
             'emisor' => [
-                'tipoIdentificacion' => (string) $company->tipo_cedula,
+                'tipoIdentificacion' => TipoIdentificacion::codigo((string) $company->tipo_cedula),
                 'numeroIdentificacion' => $this->cedulaEmisor($company),
             ],
             'comprobanteXml' => base64_encode($xmlFirmado),
@@ -473,7 +481,7 @@ class DocumentEmissionService
                 'numeroIdentificacion' => (string) $documentParams['numero_cedula_emisor'],
             ];
             $payload['receptor'] = [
-                'tipoIdentificacion' => (string) $company->tipo_cedula,
+                'tipoIdentificacion' => TipoIdentificacion::codigo((string) $company->tipo_cedula),
                 'numeroIdentificacion' => $this->cedulaEmisor($company),
             ];
             $payload['consecutivoReceptor'] = str_pad($consecutivo, 20, '0', STR_PAD_LEFT);
