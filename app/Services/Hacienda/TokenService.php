@@ -134,6 +134,7 @@ class TokenService
     {
         return Http::asForm()
             ->withOptions(['verify' => $this->env->verifySsl()])
+            ->connectTimeout($this->env->connectTimeout())
             ->timeout($this->env->timeout())
             ->post($url, $data);
     }

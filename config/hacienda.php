@@ -34,7 +34,20 @@ return [
 
     'verify_ssl' => env('HACIENDA_VERIFY_SSL', true),
 
-    'timeout' => env('HACIENDA_TIMEOUT', 60),
+    /*
+    |--------------------------------------------------------------------------
+    | Timeouts hacia Hacienda (segundos)
+    |--------------------------------------------------------------------------
+    | connect_timeout: cuánto esperar a que Hacienda acepte la conexión. Corto,
+    | para que una caída falle rápido en vez de retener el proceso.
+    | timeout: tope de cada petición completa (conexión + respuesta). Una
+    | emisión hace hasta dos (token + recepción): el cliente del API debería
+    | esperar al menos 2 × timeout, o cortará antes de saber el resultado.
+    */
+
+    'connect_timeout' => (int) env('HACIENDA_CONNECT_TIMEOUT', 10),
+
+    'timeout' => (int) env('HACIENDA_TIMEOUT', 60),
 
     /*
     |--------------------------------------------------------------------------

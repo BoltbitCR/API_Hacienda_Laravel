@@ -34,6 +34,7 @@ class ReceptionClient
             ])
                 ->withBody(json_encode($datos), 'application/json')
                 ->withOptions(['verify' => $this->env->verifySsl()])
+                ->connectTimeout($this->env->connectTimeout())
                 ->timeout($this->env->timeout())
                 ->post((string) $url);
         } catch (\Throwable $e) {

@@ -6,6 +6,13 @@ indique lo contrario.
 
 ## Sin publicar
 
+### Agregado
+- `HACIENDA_CONNECT_TIMEOUT` (default `10` s): tiempo máximo para conectar con
+  Hacienda en todas las llamadas (IdP, recepción, consulta y listado). Con Hacienda
+  caída cada petición falla en segundos en vez de esperar `HACIENDA_TIMEOUT` (60 s) por
+  llamada. El cliente del API debería esperar al menos 2 × `HACIENDA_TIMEOUT` (token +
+  recepción) (#54).
+
 ### Corregido
 - **[contrato]** `POST /documents` ya no responde `201` si Hacienda no recibió el
   comprobante. **No aditivo**: recepción `202` → `201`; `400` → `422` con `message` (la

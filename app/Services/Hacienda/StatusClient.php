@@ -86,6 +86,7 @@ class StatusClient
             'Content-Type' => 'application/x-www-form-urlencoded',
         ])
             ->withOptions(['verify' => $this->env->verifySsl()])
+            ->connectTimeout($this->env->connectTimeout())
             ->timeout(30)
             ->get($url.$clave);
     }
