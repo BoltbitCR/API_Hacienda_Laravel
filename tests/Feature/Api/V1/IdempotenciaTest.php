@@ -55,7 +55,7 @@ test('si Hacienda no recibió el intento anterior, la misma clave se puede reint
         },
     ]);
     $cuerpo = cuerpoFe(['params' => ['consecutivo' => '0000000046', 'codigoSeguridad' => '22222222']]);
-    $primera = $this->withToken($token)->postJson('/api/v1/documents', $cuerpo)->assertStatus(201);
+    $primera = $this->withToken($token)->postJson('/api/v1/documents', $cuerpo)->assertStatus(502);
     expect($primera->json('estado'))->toBe('error');
 
     $segunda = $this->withToken($token)->postJson('/api/v1/documents', $cuerpo)->assertStatus(201);

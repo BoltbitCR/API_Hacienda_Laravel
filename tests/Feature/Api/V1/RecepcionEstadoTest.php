@@ -25,9 +25,11 @@ test('recepción 400: queda rechazado con la causa de X-Error-Cause', function (
     [, , $token] = emisorDePrueba();
     haciendaFalsa(Http::response('', 400, ['X-Error-Cause' => 'Comprobante con clave duplicada']));
 
-    $r = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertStatus(201);
+    $r = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertStatus(422);
 
-    expect($r->json('estado'))->toBe('rechazado')
+    expect($r->json('message'))->toBe('Comprobante con clave duplicada')
+        ->and($r->json('clave'))->toHaveLength(50)
+        ->and($r->json('estado'))->toBe('rechazado')
         ->and($r->json('recepcion.status'))->toBe(400)
         ->and($r->json('recepcion.causa'))->toBe('Comprobante con clave duplicada')
         ->and($r->json('envio.Status'))->toBe(400); // el campo histórico sigue
@@ -44,13 +46,41 @@ test('sin conexión con Hacienda: queda en error, no en enviado', function () {
         '*recepcion*' => fn () => throw new ConnectionException('cURL error 28: timeout'),
     ]);
 
-    $r = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertStatus(201);
+    $r = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502);
 
-    expect($r->json('estado'))->toBe('error')
+    expect($r->json('message'))->toContain('Hacienda no recibió el comprobante')
+        ->and($r->json('document_id'))->not->toBeNull()
+        ->and($r->json('clave'))->toHaveLength(50)
+        ->and($r->json('estado'))->toBe('error')
         ->and($r->json('recepcion.status'))->toBe(0)
         ->and($r->json('recepcion.causa'))->toContain('timeout');
     $this->assertDatabaseHas('documents', ['id' => $r->json('document_id'), 'estado' => 'error', 'recepcion_status' => 0]);
 });
+
+test('recepción 5xx: 502 y queda en error', function () {
+    [, , $token] = emisorDePrueba();
+    haciendaFalsa(Http::response('<html>Service Unavailable</html>', 503));
+
+    $r = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502);
+
+    expect($r->json('message'))->toContain('HTTP 503')
+        ->and($r->json('estado'))->toBe('error')
+        ->and($r->json('recepcion.status'))->toBe(503);
+});
+
+test('el replay por Idempotency-Key responde con el mismo criterio', function (Closure $recepcion, int $primera, int $replay) {
+    [, , $token] = emisorDePrueba();
+    haciendaFalsa($recepcion());
+
+    $a = $this->withToken($token)->withHeader('Idempotency-Key', 'k-replay')->postJson('/api/v1/documents', cuerpoFe())->assertStatus($primera);
+    $b = $this->withToken($token)->withHeader('Idempotency-Key', 'k-replay')->postJson('/api/v1/documents', cuerpoFe())->assertStatus($replay);
+
+    expect($b->json('idempotent_replay'))->toBeTrue()
+        ->and($b->json('document_id'))->toBe($a->json('document_id'));
+})->with([
+    'recibido' => [fn () => Http::response('', 202), 201, 200],
+    'rechazado' => [fn () => Http::response('', 400, ['X-Error-Cause' => 'x']), 422, 422],
+]);
 
 test('la consulta de estado guarda el MensajeHacienda y el detalle lo expone', function () {
     [, , $token] = emisorDePrueba();
