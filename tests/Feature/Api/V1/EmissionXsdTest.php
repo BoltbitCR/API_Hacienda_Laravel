@@ -154,8 +154,8 @@ test('emisor y receptor con cédula jurídica alfanumérica validan contra el XS
  * (18,5 en el XSD): recortar el medio a 2 decimales hacía que la suma no cuadrara con un total de
  * 5 decimales, el caso normal de un precio con IVA.
  */
-test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra con el total', function (string $tipo, array $referencia) {
-    [$xml, $errores] = emitirYValidar(empresaEmisora(), $tipo, $referencia + [
+test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra con el total', function (string $tipo, array $ajustes) {
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), $tipo, array_replace_recursive([
         'medios_pago' => [
             ['tipoMedioPago' => '01', 'totalMedioPago' => 2000],
             ['tipoMedioPago' => '06', 'totalMedioPago' => 2499.9877],
@@ -177,7 +177,7 @@ test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra c
                 ['Codigo' => '01', 'CodigoTarifaIVA' => '08', 'TotalMontoImpuesto' => 517.6977],
             ]),
         ],
-    ]);
+    ], $ajustes));
 
     expect($errores)->toBe([]);
 
@@ -193,4 +193,8 @@ test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra c
     'TE' => ['TE', []],
     'NC' => ['NC', referenciaParaXsd('01', '01')],
     'ND' => ['ND', referenciaParaXsd('01', '02')],
+    // La FEC 4.4 exige InformacionReferencia (tipo 16: comprobante del proveedor no domiciliado).
+    'FEC' => ['FEC', referenciaParaXsd('16', '04', 'F-001')],
+    // La LineaDetalle de la FEE no tiene ImpuestoNeto en el XSD: con 0 el generador lo omite.
+    'FEE' => ['FEE', ['detalles' => [['impuestoNeto' => 0]]]],
 ]);
