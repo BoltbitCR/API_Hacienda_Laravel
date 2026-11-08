@@ -929,7 +929,7 @@ function genXMLFe()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
@@ -1804,7 +1804,7 @@ function genXMLNC()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
@@ -2683,7 +2683,7 @@ function genXMLND()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
@@ -3547,7 +3547,7 @@ function genXMLTE()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
@@ -4369,7 +4369,7 @@ function genXMLFec()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
@@ -5165,7 +5165,7 @@ function genXMLFee()
 
             // Add TotalMedioPago
             if (isset($o->totalMedioPago) && is_numeric($o->totalMedioPago)) {
-                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 2, '.', '') . '</TotalMedioPago>';
+                $xmlString .= '<TotalMedioPago>' . number_format($o->totalMedioPago, 5, '.', '') . '</TotalMedioPago>';
             }
 
             $xmlString .= '</MedioPago>';
