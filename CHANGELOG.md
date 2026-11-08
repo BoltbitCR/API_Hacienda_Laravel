@@ -7,6 +7,12 @@ indique lo contrario.
 ## Sin publicar
 
 ### Agregado
+- **[contrato]** Antes de reenviar con la misma `Idempotency-Key` lo que quedó con recepción
+  `0`/`5xx`, el API consulta la clave en Hacienda. El corte de red pudo darse después de que
+  Hacienda lo recibió, y reenviarlo lo haría ver repetido. Si Hacienda ya la tiene, no reenvía:
+  el documento queda con recepción `202` y el estado que Hacienda reporta, y responde `201` con
+  `ya_recibido: true`. Si contesta que no la conoce (`404`), reenvía como antes. Si no se puede
+  consultar, responde `502` con `sin_confirmar: true`, no reenvía y el documento no cambia.
 - **[contrato]** Repetir `POST /documents` con la misma `Idempotency-Key` reintenta lo
   que Hacienda no recibió en vez de devolver el error para siempre: si la recepción
   respondió `0`/`5xx`, reenvía el **mismo XML firmado** (misma clave y consecutivo, token

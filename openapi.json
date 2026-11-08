@@ -1049,7 +1049,7 @@
             },
             "post": {
                 "operationId": "document.store",
-                "description": "El c\u00f3digo refleja lo que respondi\u00f3 la recepci\u00f3n de Hacienda: 201 si\nlo recibi\u00f3 (202); 422 si lo rechaz\u00f3 (400, causa en `recepcion.causa`);\n502 si no lo recibi\u00f3 (sin conexi\u00f3n o 5xx) \u2014 el comprobante queda en\n`estado: error` y se puede reintentar con el mismo `consecutivo`.\n\nCon el header `Idempotency-Key` (hasta 100 caracteres), repetir la\npetici\u00f3n nunca emite otro comprobante: si Hacienda ya lo recibi\u00f3 o lo\nrechaz\u00f3, devuelve lo emitido con el mismo criterio (200 en vez de\n201); si no lo recibi\u00f3, reenv\u00eda el mismo XML firmado (misma clave y\nconsecutivo, `reenviado: true`); si fall\u00f3 antes de firmarse, lo vuelve\na emitir con el mismo consecutivo. Con una emisi\u00f3n en curso con esa\nclave, 409. Un consecutivo que ya lleg\u00f3 a Hacienda responde 409.\n\nSi el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir\nconsecutivo; credenciales rechazadas por el IdP, 422.",
+                "description": "El c\u00f3digo refleja lo que respondi\u00f3 la recepci\u00f3n de Hacienda: 201 si\nlo recibi\u00f3 (202); 422 si lo rechaz\u00f3 (400, causa en `recepcion.causa`);\n502 si no lo recibi\u00f3 (sin conexi\u00f3n o 5xx) \u2014 el comprobante queda en\n`estado: error` y se puede reintentar con el mismo `consecutivo`.\n\nCon el header `Idempotency-Key` (hasta 100 caracteres), repetir la\npetici\u00f3n nunca emite otro comprobante: si Hacienda ya lo recibi\u00f3 o lo\nrechaz\u00f3, devuelve lo emitido con el mismo criterio (200 en vez de\n201); si no lo recibi\u00f3, reenv\u00eda el mismo XML firmado (misma clave y\nconsecutivo, `reenviado: true`), despu\u00e9s de consultar la clave en\nHacienda: si ya la tiene no reenv\u00eda y responde 201 con\n`ya_recibido: true`; si no se pudo consultar, 502 con\n`sin_confirmar: true` sin reenviar. Si fall\u00f3 antes de firmarse, lo vuelve\na emitir con el mismo consecutivo. Con una emisi\u00f3n en curso con esa\nclave, 409. Un consecutivo que ya lleg\u00f3 a Hacienda responde 409.\n\nSi el IdP de Hacienda no responde, 503 con `Retry-After` sin consumir\nconsecutivo; credenciales rechazadas por el IdP, 422.",
                 "summary": "Emite un nuevo comprobante electr\u00f3nico",
                 "tags": [
                     "Document"
@@ -1163,93 +1163,231 @@
                                             ]
                                         },
                                         {
-                                            "type": "object",
-                                            "properties": {
-                                                "clave": {
-                                                    "type": "string"
-                                                },
-                                                "consecutivo": {
-                                                    "type": "string"
-                                                },
-                                                "xmlFirmado": {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                "envio": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "Status": {
-                                                                    "type": "integer"
-                                                                },
-                                                                "text": {
-                                                                    "type": "array",
-                                                                    "items": {}
-                                                                }
-                                                            },
-                                                            "required": [
-                                                                "Status",
-                                                                "text"
-                                                            ]
-                                                        },
-                                                        {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "Status": {
-                                                                    "type": "integer"
-                                                                },
-                                                                "to": {
-                                                                    "type": "string"
-                                                                },
-                                                                "text": {
-                                                                    "type": "string"
-                                                                }
-                                                            },
-                                                            "required": [
-                                                                "Status",
-                                                                "to",
-                                                                "text"
-                                                            ]
-                                                        }
-                                                    ]
-                                                },
-                                                "document_id": {
-                                                    "type": "integer"
-                                                },
-                                                "estado": {
-                                                    "type": "string"
-                                                },
-                                                "recepcion": {
+                                            "anyOf": [
+                                                {
                                                     "type": "object",
                                                     "properties": {
-                                                        "status": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "text": {
+                                                                            "type": "array",
+                                                                            "items": {}
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status",
+                                                                        "text"
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "to": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "text": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status",
+                                                                        "to",
+                                                                        "text"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "document_id": {
                                                             "type": "integer"
                                                         },
-                                                        "causa": {
+                                                        "estado": {
                                                             "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "causa": {
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
                                                         }
                                                     },
                                                     "required": [
-                                                        "status",
-                                                        "causa"
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado"
                                                     ]
                                                 },
-                                                "reenviado": {
-                                                    "type": "boolean"
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "Status": {
+                                                                    "type": "integer",
+                                                                    "const": 202
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "Status"
+                                                            ]
+                                                        },
+                                                        "document_id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "estado": {
+                                                            "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer",
+                                                                    "const": 202
+                                                                },
+                                                                "causa": {
+                                                                    "type": "null"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "ya_recibido": {
+                                                            "type": "boolean"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado",
+                                                        "ya_recibido"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "Status": {
+                                                                    "type": "integer"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "Status"
+                                                            ]
+                                                        },
+                                                        "document_id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "estado": {
+                                                            "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "causa": {
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "sin_confirmar": {
+                                                            "type": "boolean"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado",
+                                                        "sin_confirmar"
+                                                    ]
                                                 }
-                                            },
-                                            "required": [
-                                                "clave",
-                                                "consecutivo",
-                                                "xmlFirmado",
-                                                "envio",
-                                                "document_id",
-                                                "estado",
-                                                "recepcion",
-                                                "reenviado"
                                             ]
                                         },
                                         {
@@ -1411,93 +1549,231 @@
                                             ]
                                         },
                                         {
-                                            "type": "object",
-                                            "properties": {
-                                                "clave": {
-                                                    "type": "string"
-                                                },
-                                                "consecutivo": {
-                                                    "type": "string"
-                                                },
-                                                "xmlFirmado": {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                "envio": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "Status": {
-                                                                    "type": "integer"
-                                                                },
-                                                                "text": {
-                                                                    "type": "array",
-                                                                    "items": {}
-                                                                }
-                                                            },
-                                                            "required": [
-                                                                "Status",
-                                                                "text"
-                                                            ]
-                                                        },
-                                                        {
-                                                            "type": "object",
-                                                            "properties": {
-                                                                "Status": {
-                                                                    "type": "integer"
-                                                                },
-                                                                "to": {
-                                                                    "type": "string"
-                                                                },
-                                                                "text": {
-                                                                    "type": "string"
-                                                                }
-                                                            },
-                                                            "required": [
-                                                                "Status",
-                                                                "to",
-                                                                "text"
-                                                            ]
-                                                        }
-                                                    ]
-                                                },
-                                                "document_id": {
-                                                    "type": "integer"
-                                                },
-                                                "estado": {
-                                                    "type": "string"
-                                                },
-                                                "recepcion": {
+                                            "anyOf": [
+                                                {
                                                     "type": "object",
                                                     "properties": {
-                                                        "status": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "text": {
+                                                                            "type": "array",
+                                                                            "items": {}
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status",
+                                                                        "text"
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "to": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "text": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status",
+                                                                        "to",
+                                                                        "text"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "document_id": {
                                                             "type": "integer"
                                                         },
-                                                        "causa": {
+                                                        "estado": {
                                                             "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "causa": {
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
                                                         }
                                                     },
                                                     "required": [
-                                                        "status",
-                                                        "causa"
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado"
                                                     ]
                                                 },
-                                                "reenviado": {
-                                                    "type": "boolean"
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "Status": {
+                                                                    "type": "integer",
+                                                                    "const": 202
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "Status"
+                                                            ]
+                                                        },
+                                                        "document_id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "estado": {
+                                                            "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer",
+                                                                    "const": 202
+                                                                },
+                                                                "causa": {
+                                                                    "type": "null"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "ya_recibido": {
+                                                            "type": "boolean"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado",
+                                                        "ya_recibido"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "clave": {
+                                                            "type": "string"
+                                                        },
+                                                        "consecutivo": {
+                                                            "type": "string"
+                                                        },
+                                                        "xmlFirmado": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "envio": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "Status": {
+                                                                    "type": "integer"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "Status"
+                                                            ]
+                                                        },
+                                                        "document_id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "estado": {
+                                                            "type": "string"
+                                                        },
+                                                        "recepcion": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "status": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "causa": {
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "status",
+                                                                "causa"
+                                                            ]
+                                                        },
+                                                        "reenviado": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "sin_confirmar": {
+                                                            "type": "boolean"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "clave",
+                                                        "consecutivo",
+                                                        "xmlFirmado",
+                                                        "envio",
+                                                        "document_id",
+                                                        "estado",
+                                                        "recepcion",
+                                                        "reenviado",
+                                                        "sin_confirmar"
+                                                    ]
                                                 }
-                                            },
-                                            "required": [
-                                                "clave",
-                                                "consecutivo",
-                                                "xmlFirmado",
-                                                "envio",
-                                                "document_id",
-                                                "estado",
-                                                "recepcion",
-                                                "reenviado"
                                             ]
                                         },
                                         {
@@ -1671,92 +1947,238 @@
                                                 "message": {
                                                     "type": "string"
                                                 },
-                                                "clave": {
-                                                    "type": "string"
-                                                },
-                                                "consecutivo": {
-                                                    "type": "string"
-                                                },
-                                                "xmlFirmado": {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                "envio": {
+                                                "": {
                                                     "anyOf": [
                                                         {
                                                             "type": "object",
                                                             "properties": {
-                                                                "Status": {
+                                                                "clave": {
+                                                                    "type": "string"
+                                                                },
+                                                                "consecutivo": {
+                                                                    "type": "string"
+                                                                },
+                                                                "xmlFirmado": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "envio": {
+                                                                    "anyOf": [
+                                                                        {
+                                                                            "type": "object",
+                                                                            "properties": {
+                                                                                "Status": {
+                                                                                    "type": "integer"
+                                                                                },
+                                                                                "text": {
+                                                                                    "type": "array",
+                                                                                    "items": {}
+                                                                                }
+                                                                            },
+                                                                            "required": [
+                                                                                "Status",
+                                                                                "text"
+                                                                            ]
+                                                                        },
+                                                                        {
+                                                                            "type": "object",
+                                                                            "properties": {
+                                                                                "Status": {
+                                                                                    "type": "integer"
+                                                                                },
+                                                                                "to": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "text": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            },
+                                                                            "required": [
+                                                                                "Status",
+                                                                                "to",
+                                                                                "text"
+                                                                            ]
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                "document_id": {
                                                                     "type": "integer"
                                                                 },
-                                                                "text": {
-                                                                    "type": "array",
-                                                                    "items": {}
+                                                                "estado": {
+                                                                    "type": "string"
+                                                                },
+                                                                "recepcion": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "causa": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "status",
+                                                                        "causa"
+                                                                    ]
+                                                                },
+                                                                "reenviado": {
+                                                                    "type": "boolean"
                                                                 }
                                                             },
                                                             "required": [
-                                                                "Status",
-                                                                "text"
+                                                                "clave",
+                                                                "consecutivo",
+                                                                "xmlFirmado",
+                                                                "envio",
+                                                                "document_id",
+                                                                "estado",
+                                                                "recepcion",
+                                                                "reenviado"
                                                             ]
                                                         },
                                                         {
                                                             "type": "object",
                                                             "properties": {
-                                                                "Status": {
+                                                                "clave": {
+                                                                    "type": "string"
+                                                                },
+                                                                "consecutivo": {
+                                                                    "type": "string"
+                                                                },
+                                                                "xmlFirmado": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "envio": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer",
+                                                                            "const": 202
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status"
+                                                                    ]
+                                                                },
+                                                                "document_id": {
                                                                     "type": "integer"
                                                                 },
-                                                                "to": {
+                                                                "estado": {
                                                                     "type": "string"
                                                                 },
-                                                                "text": {
-                                                                    "type": "string"
+                                                                "recepcion": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "status": {
+                                                                            "type": "integer",
+                                                                            "const": 202
+                                                                        },
+                                                                        "causa": {
+                                                                            "type": "null"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "status",
+                                                                        "causa"
+                                                                    ]
+                                                                },
+                                                                "reenviado": {
+                                                                    "type": "boolean"
+                                                                },
+                                                                "ya_recibido": {
+                                                                    "type": "boolean"
                                                                 }
                                                             },
                                                             "required": [
-                                                                "Status",
-                                                                "to",
-                                                                "text"
+                                                                "clave",
+                                                                "consecutivo",
+                                                                "xmlFirmado",
+                                                                "envio",
+                                                                "document_id",
+                                                                "estado",
+                                                                "recepcion",
+                                                                "reenviado",
+                                                                "ya_recibido"
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "clave": {
+                                                                    "type": "string"
+                                                                },
+                                                                "consecutivo": {
+                                                                    "type": "string"
+                                                                },
+                                                                "xmlFirmado": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "envio": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "Status": {
+                                                                            "type": "integer"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "Status"
+                                                                    ]
+                                                                },
+                                                                "document_id": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "estado": {
+                                                                    "type": "string"
+                                                                },
+                                                                "recepcion": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "status": {
+                                                                            "type": "integer"
+                                                                        },
+                                                                        "causa": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "status",
+                                                                        "causa"
+                                                                    ]
+                                                                },
+                                                                "reenviado": {
+                                                                    "type": "boolean"
+                                                                },
+                                                                "sin_confirmar": {
+                                                                    "type": "boolean"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "clave",
+                                                                "consecutivo",
+                                                                "xmlFirmado",
+                                                                "envio",
+                                                                "document_id",
+                                                                "estado",
+                                                                "recepcion",
+                                                                "reenviado",
+                                                                "sin_confirmar"
                                                             ]
                                                         }
                                                     ]
-                                                },
-                                                "document_id": {
-                                                    "type": "integer"
-                                                },
-                                                "estado": {
-                                                    "type": "string"
-                                                },
-                                                "recepcion": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "status": {
-                                                            "type": "integer"
-                                                        },
-                                                        "causa": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "status",
-                                                        "causa"
-                                                    ]
-                                                },
-                                                "reenviado": {
-                                                    "type": "boolean"
                                                 }
                                             },
                                             "required": [
                                                 "message",
-                                                "clave",
-                                                "consecutivo",
-                                                "xmlFirmado",
-                                                "envio",
-                                                "document_id",
-                                                "estado",
-                                                "recepcion",
-                                                "reenviado"
+                                                null
                                             ]
                                         },
                                         {
