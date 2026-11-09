@@ -86,11 +86,13 @@ test('una referencia válida pasa la validación', function (string $tipo, array
     'tipoDoc 16 en FEC' => ['FEC', ['tipoDoc' => '16', 'numero' => 'F-001', 'codigo' => '04']],
 ]);
 
-test('NC y ND exigen la referencia; FE no', function () {
+test('NC, ND y FEC exigen la referencia; FE no', function () {
     $token = tokenParaReferencias();
 
     emitirConReferencias('NC', null, token: $token)->assertJsonValidationErrors('informacion_referencia');
     emitirConReferencias('ND', null, token: $token)->assertJsonValidationErrors('informacion_referencia');
+    // La FEC 4.4 la exige en el XSD: sin ella el XML no valida.
+    emitirConReferencias('FEC', null, token: $token)->assertStatus(422)->assertJsonValidationErrors('informacion_referencia');
     emitirConReferencias('FE', null, token: $token)->assertJsonMissingValidationErrors(['informacion_referencia']);
 });
 

@@ -37,6 +37,10 @@ indique lo contrario.
   `Idempotency-Key` tras un `0`/`5xx` lo tomaba como `ya_recibido` sin haber enviado nunca el
   MR. Ahora el estado, `respuesta_mh_base64` y `ya_recibido` son los del mensaje; si Hacienda
   no lo tiene, el estado responde `404` y el reenvío lo manda.
+- **[contrato]** `POST /documents` y `POST /documents/validate` exigen `informacion_referencia`
+  en la FEC, como en NC, ND y REP. **No aditivo**: una FEC sin referencia pasa de `201` a `422`.
+  El XSD 4.4 de la factura electrónica de compra la declara obligatoria, así que sin ella el
+  XML no validaba y Hacienda la rechazaba. El endpoint legacy (`/api.php`) queda igual (#68).
 - La FEE ya no escribe `ImpuestoNeto` en `LineaDetalle`: ese nodo no existe en el XSD 4.4 de
   exportación (después de `Impuesto` va `MontoTotalLinea`), así que toda FEE con una línea
   gravada salía con un XML inválido y Hacienda la rechazaba. Cambia la respuesta de `genXML`
