@@ -4963,9 +4963,7 @@ function genXMLFee()
             }
         }
 
-        if (isset($d->impuestoNeto) && _ne74($d->impuestoNeto)) {
-            $xmlString .= '<ImpuestoNeto>' . _xml($d->impuestoNeto) . '</ImpuestoNeto>';
-        }
+        // La LineaDetalle de la FEE 4.4 no tiene ImpuestoNeto: después de Impuesto va MontoTotalLinea.
         $xmlString .= '<MontoTotalLinea>' . _xml($d->montoTotalLinea) . '</MontoTotalLinea>';
         $xmlString .= '</LineaDetalle>';
         $l++;

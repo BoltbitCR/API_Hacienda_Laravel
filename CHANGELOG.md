@@ -29,6 +29,10 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- La FEE ya no escribe `ImpuestoNeto` en `LineaDetalle`: ese nodo no existe en el XSD 4.4 de
+  exportación (después de `Impuesto` va `MontoTotalLinea`), así que toda FEE con una línea
+  gravada salía con un XML inválido y Hacienda la rechazaba. Cambia la respuesta de `genXML`
+  en `/api.php`: el fixture golden de la FEE se actualizó a propósito (#67).
 - **[contrato]** `GET /documents/{id}/status` y `GET /hacienda/status` responden `404` cuando
   Hacienda no tiene la clave. Hacienda contesta a eso con `400` y `X-Error-Cause` «El
   comprobante [clave] no ha sido recibido.», no con `404`, y salía como `502`. Un `200` sin
