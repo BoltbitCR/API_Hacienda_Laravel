@@ -3,6 +3,7 @@
 use App\Models\Consecutive;
 use App\Models\Document;
 use App\Services\Xsd\XsdValidatorService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -101,4 +102,148 @@ test('sin clave, mensaje o emisor del comprobante recibido responde 422', functi
     $this->withToken($token)->postJson('/api/v1/documents', ['tipo' => 'MR', 'environment' => 'stag'])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['clave', 'mensaje', 'tipo_identificacion_emisor', 'numero_cedula_emisor', 'total_factura']);
+});
+
+/**
+ * Hacienda falsa para el estado de un mensaje receptor: la clave sola es la factura del
+ * proveedor (aceptada, la tiene Hacienda) y `{clave}-{consecutivo}` es el mensaje, que
+ * responde $mensaje. Así lo distingue el sandbox (2026-11): cada una trae su MensajeHacienda.
+ * Guarda en $consultas las claves consultadas y en $envios los POST a la recepción.
+ */
+function haciendaConFacturaDelProveedor(Closure $mensaje, array &$consultas, array &$envios, ?Closure $recepcion = null): void
+{
+    Http::fake([
+        '*idp*' => Http::response(['access_token' => 'fake-token', 'expires_in' => 300], 200),
+        '*recepcion*' => function ($req) use ($mensaje, &$consultas, &$envios, $recepcion) {
+            if ($req->method() === 'GET') {
+                $consulta = substr($req->url(), strrpos($req->url(), '/') + 1);
+                $consultas[] = $consulta;
+
+                return $consulta === CLAVE_RECIBIDA
+                    ? Http::response(['clave' => CLAVE_RECIBIDA, 'ind-estado' => 'aceptado', 'respuesta-xml' => base64_encode('<MensajeHacienda>factura</MensajeHacienda>')], 200)
+                    : $mensaje($consulta);
+            }
+            $envios[] = $req->data();
+
+            return $recepcion ? $recepcion(count($envios)) : Http::response('', 202);
+        },
+    ]);
+}
+
+test('reenviar un MR tras un 5xx consulta {clave}-{consecutivo} y lo reenvía si Hacienda no tiene el mensaje', function () {
+    [, $company, $token] = emisorDePrueba();
+    $consultas = [];
+    $envios = [];
+    haciendaConFacturaDelProveedor(
+        fn (string $consulta) => Http::response('', 400, ['X-Error-Cause' => "El comprobante [$consulta] no ha sido recibido."]),
+        $consultas,
+        $envios,
+        fn (int $n) => $n === 1 ? Http::response('<html>Bad Gateway</html>', 502) : Http::response('', 202),
+    );
+
+    $primera = $this->withToken($token)->withHeader('Idempotency-Key', 'mr-5xx')
+        ->postJson('/api/v1/documents', cuerpoMr())->assertStatus(502);
+    $segunda = $this->withToken($token)->withHeader('Idempotency-Key', 'mr-5xx')
+        ->postJson('/api/v1/documents', cuerpoMr())->assertStatus(201);
+
+    $consecutivo = $primera->json('consecutivo');
+    expect($consultas)->toBe([CLAVE_RECIBIDA.'-'.$consecutivo])
+        ->and($envios)->toHaveCount(2)
+        ->and($envios[1]['comprobanteXml'])->toBe($envios[0]['comprobanteXml'])
+        ->and($envios[1]['consecutivoReceptor'])->toBe($consecutivo)
+        ->and($segunda->json('reenviado'))->toBeTrue()
+        ->and($segunda->json('ya_recibido'))->toBeNull()
+        ->and($segunda->json('estado'))->toBe('enviado');
+    $this->assertDatabaseHas('documents', [
+        'id' => $primera->json('document_id'), 'company_id' => $company->id, 'estado' => 'enviado',
+        'recepcion_status' => 202, 'respuesta_mh_base64' => null,
+    ]);
+});
+
+test('reenviar un MR que Hacienda ya tiene lo deja recibido con el estado del mensaje, no el de la factura', function () {
+    [, , $token] = emisorDePrueba();
+    $consultas = [];
+    $envios = [];
+    $respuestaMensaje = base64_encode('<MensajeHacienda>mensaje receptor</MensajeHacienda>');
+    haciendaConFacturaDelProveedor(
+        fn (string $consulta) => Http::response(['clave' => $consulta, 'ind-estado' => 'procesando', 'respuesta-xml' => $respuestaMensaje], 200),
+        $consultas,
+        $envios,
+        fn () => throw new ConnectionException('Operation timed out'),
+    );
+
+    $primera = $this->withToken($token)->withHeader('Idempotency-Key', 'mr-corte')
+        ->postJson('/api/v1/documents', cuerpoMr())->assertStatus(502);
+    $segunda = $this->withToken($token)->withHeader('Idempotency-Key', 'mr-corte')
+        ->postJson('/api/v1/documents', cuerpoMr())->assertStatus(201);
+
+    expect($consultas)->toBe([CLAVE_RECIBIDA.'-'.$primera->json('consecutivo')])
+        ->and($envios)->toHaveCount(1)
+        ->and($segunda->json('ya_recibido'))->toBeTrue()
+        ->and($segunda->json('reenviado'))->toBeFalse()
+        ->and($segunda->json('estado'))->toBe('procesando');
+    $this->assertDatabaseHas('documents', [
+        'id' => $primera->json('document_id'), 'estado' => 'procesando', 'recepcion_status' => 202,
+        'respuesta_mh_base64' => $respuestaMensaje,
+    ]);
+});
+
+test('el estado de un MR consulta {clave}-{consecutivo} y no toma el de la factura del proveedor', function () {
+    [, , $token] = emisorDePrueba();
+    $consultas = [];
+    $envios = [];
+    $respuestaMensaje = base64_encode('<MensajeHacienda>mensaje receptor</MensajeHacienda>');
+    haciendaConFacturaDelProveedor(
+        fn (string $consulta) => Http::response(['clave' => $consulta, 'ind-estado' => 'rechazado', 'respuesta-xml' => $respuestaMensaje], 200),
+        $consultas,
+        $envios,
+    );
+
+    $mr = $this->withToken($token)->postJson('/api/v1/documents', cuerpoMr())->assertCreated();
+    $r = $this->withToken($token)->getJson('/api/v1/documents/'.$mr->json('document_id').'/status')->assertOk();
+
+    $claveMensaje = CLAVE_RECIBIDA.'-'.$mr->json('consecutivo');
+    expect($consultas)->toBe([$claveMensaje])
+        ->and($r->json('hacienda.clave'))->toBe($claveMensaje)
+        ->and($r->json('hacienda.ind-estado'))->toBe('rechazado');
+    $this->assertDatabaseHas('documents', ['id' => $mr->json('document_id'), 'estado' => 'rechazado', 'respuesta_mh_base64' => $respuestaMensaje]);
+});
+
+test('el estado de un MR que Hacienda no recibió responde 404 aunque tenga la factura del proveedor', function () {
+    [, , $token] = emisorDePrueba();
+    $consultas = [];
+    $envios = [];
+    haciendaConFacturaDelProveedor(
+        fn (string $consulta) => Http::response('', 400, ['X-Error-Cause' => "El comprobante [$consulta] no ha sido recibido."]),
+        $consultas,
+        $envios,
+    );
+
+    $mr = $this->withToken($token)->postJson('/api/v1/documents', cuerpoMr())->assertCreated();
+    $this->withToken($token)->getJson('/api/v1/documents/'.$mr->json('document_id').'/status')->assertNotFound();
+
+    expect($consultas)->toBe([CLAVE_RECIBIDA.'-'.$mr->json('consecutivo')])
+        ->and(Document::find($mr->json('document_id'))->estado)->toBe('enviado');
+});
+
+test('una FE se sigue consultando por su clave sola', function () {
+    [, , $token] = emisorDePrueba();
+    $consultas = [];
+    Http::fake([
+        '*idp*' => Http::response(['access_token' => 'fake-token', 'expires_in' => 300], 200),
+        '*recepcion*' => function ($req) use (&$consultas) {
+            if ($req->method() === 'GET') {
+                $consultas[] = substr($req->url(), strrpos($req->url(), '/') + 1);
+
+                return Http::response(['ind-estado' => 'aceptado'], 200);
+            }
+
+            return Http::response('', 202);
+        },
+    ]);
+
+    $fe = $this->withToken($token)->postJson('/api/v1/documents', cuerpoFe())->assertCreated();
+    $this->withToken($token)->getJson('/api/v1/documents/'.$fe->json('document_id').'/status')->assertOk();
+
+    expect($consultas)->toBe([$fe->json('clave')]);
 });
