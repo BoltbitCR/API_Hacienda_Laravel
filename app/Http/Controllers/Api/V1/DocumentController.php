@@ -250,7 +250,7 @@ class DocumentController extends Controller
         // 502: no se pudo consultar (sin conexión, 5xx, otro error de Hacienda);
         // 404: Hacienda no tiene la clave. Ninguno es un estado del comprobante.
         try {
-            $result = $this->status->estado($document->clave, $document->env, $token);
+            $result = $this->status->estado($document->claveConsulta(), $document->env, $token);
         } catch (RuntimeException $e) {
             abort(502, $e->getMessage());
         }

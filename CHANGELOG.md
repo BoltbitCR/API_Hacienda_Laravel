@@ -29,6 +29,14 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- **[contrato]** El mensaje receptor (MR) se consulta en Hacienda como `{clave}-{consecutivo}`
+  (la clave del comprobante recibido y el `NumeroConsecutivoReceptor` de 20 dígitos), que es
+  como lo identifica la recepción. Con la clave sola Hacienda responde el estado de la factura
+  del proveedor, que siempre tiene: `GET /documents/{id}/status` de un MR devolvía la aceptación
+  de esa factura en vez de la del mensaje, y repetir `POST /documents` con la misma
+  `Idempotency-Key` tras un `0`/`5xx` lo tomaba como `ya_recibido` sin haber enviado nunca el
+  MR. Ahora el estado, `respuesta_mh_base64` y `ya_recibido` son los del mensaje; si Hacienda
+  no lo tiene, el estado responde `404` y el reenvío lo manda.
 - La FEE ya no escribe `ImpuestoNeto` en `LineaDetalle`: ese nodo no existe en el XSD 4.4 de
   exportación (después de `Impuesto` va `MontoTotalLinea`), así que toda FEE con una línea
   gravada salía con un XML inválido y Hacienda la rechazaba. Cambia la respuesta de `genXML`

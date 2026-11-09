@@ -187,7 +187,7 @@ class DocumentEmissionService
         // lo recibió. Reenviar lo que ya tiene lo haría ver repetido. Se pregunta por la clave y
         // solo se reenvía si Hacienda responde que no la conoce.
         try {
-            $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
+            $enHacienda = $this->status->estado($document->claveConsulta(), $clientId, $accessToken);
         } catch (RuntimeException $e) {
             return $this->sinConfirmar($document, $e->getMessage());
         }
@@ -210,7 +210,7 @@ class DocumentEmissionService
         // mostraba en la consulta. Se vuelve a preguntar antes de dejarlo rechazado.
         if ((int) ($envio['Status'] ?? 0) === 400) {
             try {
-                $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
+                $enHacienda = $this->status->estado($document->claveConsulta(), $clientId, $accessToken);
             } catch (RuntimeException) {
                 $enHacienda = null;
             }
