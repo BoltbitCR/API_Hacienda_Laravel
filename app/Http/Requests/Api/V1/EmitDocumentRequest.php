@@ -52,8 +52,9 @@ class EmitDocumentRequest extends FormRequest
             'receptor_email' => ['sometimes', 'email'],
 
             // InformacionReferencia (notas 9 y 10 de los Anexos 4.4). Si viene
-            // en `params`, prepareForValidation() la sube acá.
-            'informacion_referencia' => ['required_if:tipo,NC,ND,REP', 'array', 'max:'.InformacionReferencia::MAXIMO],
+            // en `params`, prepareForValidation() la sube acá. En la FEC el
+            // XSD 4.4 la exige (no es opcional como en la FE).
+            'informacion_referencia' => ['required_if:tipo,NC,ND,REP,FEC', 'array', 'max:'.InformacionReferencia::MAXIMO],
             'informacion_referencia.*' => ['array'],
             'informacion_referencia.*.tipoDoc' => ['required', 'string', Rule::in(InformacionReferencia::TIPOS_DOC)],
             'informacion_referencia.*.tipoDocOtro' => ['required_if:informacion_referencia.*.tipoDoc,99', 'nullable', 'string', 'min:5', 'max:100'],
@@ -179,7 +180,7 @@ class EmitDocumentRequest extends FormRequest
         return [
             'clave.regex' => 'La clave del comprobante recibido debe tener 50 caracteres alfanuméricos.',
             'detalle_mensaje.required_unless' => 'El rechazo y la aceptación parcial exigen el motivo en detalle_mensaje (5 a 160 caracteres).',
-            'informacion_referencia.required_if' => 'Las notas de crédito y débito y el Recibo Electrónico de Pago requieren la información de referencia.',
+            'informacion_referencia.required_if' => 'Las notas de crédito y débito, el Recibo Electrónico de Pago y la factura electrónica de compra requieren la información de referencia.',
             'condicion_venta.in' => 'El Recibo Electrónico de Pago solo admite la condición de venta 09 u 11.',
             'condicion_venta.not_in' => 'Las condiciones de venta 09 y 11 son exclusivas del Recibo Electrónico de Pago.',
             'informacion_referencia.max' => 'Se permiten como máximo 10 referencias.',

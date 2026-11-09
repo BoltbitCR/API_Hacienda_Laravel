@@ -29,6 +29,10 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- **[contrato]** `POST /documents` y `POST /documents/validate` exigen `informacion_referencia`
+  en la FEC, como en NC, ND y REP. **No aditivo**: una FEC sin referencia pasa de `201` a `422`.
+  El XSD 4.4 de la factura electrónica de compra la declara obligatoria, así que sin ella el
+  XML no validaba y Hacienda la rechazaba. El endpoint legacy (`/api.php`) queda igual (#68).
 - La FEE ya no escribe `ImpuestoNeto` en `LineaDetalle`: ese nodo no existe en el XSD 4.4 de
   exportación (después de `Impuesto` va `MontoTotalLinea`), así que toda FEE con una línea
   gravada salía con un XML inválido y Hacienda la rechazaba. Cambia la respuesta de `genXML`

@@ -131,6 +131,7 @@ test('el comprobante con la referencia nueva valida contra el XSD 4.4', function
     'ND 14' => ['ND', '01', '14'],
     'FE 16 que sustituye a un rechazado' => ['FE', '10', '16'],
     'FE 15 que sustituye por error material' => ['FE', '01', '15'],
+    'FEC 04 sobre el comprobante de un proveedor no domiciliado' => ['FEC', '16', '04'],
 ]);
 
 test('emisor y receptor con cédula jurídica alfanumérica validan contra el XSD 4.4', function () {
