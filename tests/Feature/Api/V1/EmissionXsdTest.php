@@ -195,6 +195,14 @@ test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra c
     'ND' => ['ND', referenciaParaXsd('01', '02')],
     // La FEC 4.4 exige InformacionReferencia (tipo 16: comprobante del proveedor no domiciliado).
     'FEC' => ['FEC', referenciaParaXsd('16', '04', 'F-001')],
-    // La LineaDetalle de la FEE no tiene ImpuestoNeto en el XSD: con 0 el generador lo omite.
-    'FEE' => ['FEE', ['detalles' => [['impuestoNeto' => 0]]]],
+    'FEE' => ['FEE', []],
 ]);
+
+test('la FEE con una línea gravada valida contra el XSD 4.4 y no lleva ImpuestoNeto', function () {
+    // La LineaDetalle de la FEE no tiene ImpuestoNeto: aunque venga en el cuerpo (130), no se escribe.
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEE');
+
+    expect($errores)->toBe([])
+        ->and($xml)->not->toContain('<ImpuestoNeto>')
+        ->toContain('<Monto>130</Monto>');
+});
