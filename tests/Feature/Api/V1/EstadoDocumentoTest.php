@@ -30,8 +30,9 @@ test('Hacienda acepta: 200 y el estado se actualiza', function () {
 });
 
 dataset('hacienda no tiene la clave', [
+    '400 no ha sido recibido' => fn () => claveNoRecibida(),
+    '400 no ha sido recibido en mayúsculas' => fn () => Http::response('', 400, ['X-Error-Cause' => 'EL COMPROBANTE [X] NO HA SIDO RECIBIDO.']),
     '404' => fn () => Http::response('', 404),
-    '200 vacío' => fn () => Http::response('', 200),
 ]);
 
 test('Hacienda no tiene la clave: 404 y el estado no cambia', function (Closure $consulta) {
@@ -46,6 +47,9 @@ dataset('no se pudo consultar', [
     'timeout' => [fn () => Http::failedConnection('cURL error 28: Operation timed out'), 'No se pudo consultar Hacienda'],
     '500' => [fn () => Http::response('<html>Error</html>', 500), 'Hacienda respondió 500'],
     '401' => [fn () => Http::response('', 401, ['X-Error-Cause' => 'Token expirado']), 'Hacienda respondió 401 a la consulta: Token expirado'],
+    '400 sin causa' => [fn () => Http::response('', 400), 'Hacienda respondió 400 a la consulta.'],
+    '400 con otra causa' => [fn () => Http::response('', 400, ['X-Error-Cause' => 'La clave no es válida']), 'Hacienda respondió 400 a la consulta: La clave no es válida'],
+    '200 vacío' => [fn () => Http::response('', 200), 'Hacienda respondió 200 a la consulta sin el estado del comprobante'],
 ]);
 
 test('no se pudo consultar Hacienda: 502 con la causa y el estado no cambia', function (Closure $consulta, string $mensaje) {

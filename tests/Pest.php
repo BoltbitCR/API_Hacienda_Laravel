@@ -6,6 +6,7 @@ use App\Models\LegacySession;
 use App\Models\StoredFile;
 use App\Models\User;
 use Database\Seeders\CatalogSeeder;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -92,6 +93,15 @@ function haciendaFalsa(mixed $recepcion = null): void
         '*idp*' => Http::response(['access_token' => 'fake-token', 'token_type' => 'bearer', 'expires_in' => 300], 200),
         '*recepcion*' => $recepcion ?? Http::response('', 202),
     ]);
+}
+
+/**
+ * Lo que responde Hacienda al GET /recepcion/{clave} de una clave que no
+ * recibió (sandbox, 2026-11): 400 sin cuerpo y la causa en X-Error-Cause.
+ */
+function claveNoRecibida(): PromiseInterface
+{
+    return Http::response('', 400, ['X-Error-Cause' => 'El comprobante [50601010100310123456700100001010000000001100000001] no ha sido recibido.']);
 }
 
 /**

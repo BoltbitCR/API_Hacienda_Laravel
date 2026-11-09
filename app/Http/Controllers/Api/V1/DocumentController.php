@@ -67,7 +67,10 @@ class DocumentController extends Controller
      * petición nunca emite otro comprobante: si Hacienda ya lo recibió o lo
      * rechazó, devuelve lo emitido con el mismo criterio (200 en vez de
      * 201); si no lo recibió, reenvía el mismo XML firmado (misma clave y
-     * consecutivo, `reenviado: true`); si falló antes de firmarse, lo vuelve
+     * consecutivo, `reenviado: true`), después de consultar la clave en
+     * Hacienda: si ya la tiene no reenvía y responde 201 con
+     * `ya_recibido: true`; si no se pudo consultar, 502 con
+     * `sin_confirmar: true` sin reenviar. Si falló antes de firmarse, lo vuelve
      * a emitir con el mismo consecutivo. Con una emisión en curso con esa
      * clave, 409. Un consecutivo que ya llegó a Hacienda responde 409.
      *
@@ -127,8 +130,9 @@ class DocumentController extends Controller
     /**
      * Petición repetida con la misma Idempotency-Key. Lo que Hacienda ya
      * recibió o rechazó se devuelve sin tocarla; lo que no recibió se
-     * reenvía (mismo XML firmado) o se vuelve a emitir con el mismo
-     * consecutivo si nunca llegó a firmarse.
+     * reenvía (mismo XML firmado, después de confirmar con Hacienda que no
+     * tiene la clave) o se vuelve a emitir con el mismo consecutivo si nunca
+     * llegó a firmarse.
      */
     private function repetir(EmitDocumentRequest $request, Company $company, Document $previo, string $idempotencyKey): JsonResponse
     {
@@ -147,6 +151,13 @@ class DocumentController extends Controller
                 $result = $this->emission->reenviar($company, $previo, $request->documentParams());
             } catch (EmissionException $e) {
                 return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            if ($result['sin_confirmar'] ?? false) {
+                return response()->json([
+                    'message' => 'No se pudo confirmar con Hacienda si ya recibió el comprobante ('.$result['recepcion']['causa'].'); no se reenvió. Reintentar con la misma Idempotency-Key.',
+                    ...$result,
+                ], 502, ['Retry-After' => (string) HaciendaUnavailableException::RETRY_AFTER_SECONDS]);
             }
 
             return $this->respuestaEmision($result, $result['recepcion']['status'], $result['estado']);

@@ -7,6 +7,14 @@ indique lo contrario.
 ## Sin publicar
 
 ### Agregado
+- **[contrato]** Antes de reenviar con la misma `Idempotency-Key` lo que quedó con recepción
+  `0`/`5xx`, el API consulta la clave en Hacienda. El corte de red pudo darse después de que
+  Hacienda lo recibió, y reenviarlo lo haría ver repetido. Si Hacienda ya la tiene, no reenvía:
+  el documento queda con recepción `202` y el estado que Hacienda reporta, y responde `201` con
+  `ya_recibido: true`. Si contesta que no la conoce, reenvía como antes; si el reenvío sale `400`
+  y Hacienda ya muestra la clave, también queda recibido (`ya_recibido` y `reenviado: true`) en
+  vez de rechazado. Si no se puede consultar, responde `502` con `sin_confirmar: true` y
+  `Retry-After`, no reenvía y el documento no cambia.
 - **[contrato]** Repetir `POST /documents` con la misma `Idempotency-Key` reintenta lo
   que Hacienda no recibió en vez de devolver el error para siempre: si la recepción
   respondió `0`/`5xx`, reenvía el **mismo XML firmado** (misma clave y consecutivo, token
@@ -21,6 +29,10 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- **[contrato]** `GET /documents/{id}/status` y `GET /hacienda/status` responden `404` cuando
+  Hacienda no tiene la clave. Hacienda contesta a eso con `400` y `X-Error-Cause` «El
+  comprobante [clave] no ha sido recibido.», no con `404`, y salía como `502`. Un `200` sin
+  estado ya no se toma como «no la tiene»: sale `502`.
 - `TotalMedioPago` sale con 5 decimales (era 2) en FE, NC, ND, TE, FEC y FEE, como ya salía en
   el REP. Es `DecimalDineroType` en el XSD, igual que `TotalComprobante`, y con dos o más medios
   de pago Hacienda rechaza el comprobante si su suma no coincide con el total (Anexos 4.4, nota

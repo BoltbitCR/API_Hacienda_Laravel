@@ -11,6 +11,7 @@ use App\Models\StoredFile;
 use App\Services\Clave\ClaveService;
 use App\Services\Files\FileStorageService;
 use App\Services\Hacienda\ReceptionClient;
+use App\Services\Hacienda\StatusClient;
 use App\Services\Hacienda\TokenService;
 use App\Services\Signature\XadesSignerService;
 use App\Services\Xml\Legacy\CurrentParams;
@@ -20,6 +21,7 @@ use App\Services\Xsd\XsdValidatorService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Orquesta la emisión completa de un comprobante electrónico para una
@@ -68,6 +70,7 @@ class DocumentEmissionService
         private readonly ReceptionClient $reception,
         private readonly XsdValidatorService $xsd,
         private readonly FileStorageService $files,
+        private readonly StatusClient $status,
     ) {}
 
     public static function supportedTypes(): array
@@ -162,7 +165,9 @@ class DocumentEmissionService
     /**
      * Reenvía a la recepción el mismo XML firmado de un intento que Hacienda
      * no recibió (sin conexión, 5xx), con la misma clave y consecutivo y un
-     * token nuevo. No genera ni firma nada.
+     * token nuevo. No genera ni firma nada. Antes consulta la clave: si
+     * Hacienda ya la tiene no reenvía (`ya_recibido`), y si no se puede
+     * consultar tampoco (`sin_confirmar`).
      *
      * @param  array<string, mixed>  $documentParams  el cuerpo de la petición repetida
      * @return array<string, mixed> mismos campos que emit(), sin `xml`, más `reenviado`
@@ -178,6 +183,19 @@ class DocumentEmissionService
             throw new EmissionException('No se pudo obtener el token de Hacienda.');
         }
 
+        // Un 0/5xx guardado no prueba que Hacienda no lo tenga: el corte pudo ser después de que
+        // lo recibió. Reenviar lo que ya tiene lo haría ver repetido. Se pregunta por la clave y
+        // solo se reenvía si Hacienda responde que no la conoce.
+        try {
+            $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
+        } catch (RuntimeException $e) {
+            return $this->sinConfirmar($document, $e->getMessage());
+        }
+
+        if ($enHacienda !== null) {
+            return $this->yaRecibido($document, $enHacienda);
+        }
+
         $xmlFirmado = (string) base64_decode((string) $document->xml_enviado_base64);
         $documentParams['fecha_emision'] = self::fechaEmisionDelXml($xmlFirmado)
             ?? $documentParams['fecha_emision'] ?? now()->format('Y-m-d\TH:i:sP');
@@ -187,6 +205,20 @@ class DocumentEmissionService
             $clientId,
             $accessToken,
         );
+
+        // Un 400 al reenviar puede ser el repetido de algo que Hacienda ya tenía y todavía no
+        // mostraba en la consulta. Se vuelve a preguntar antes de dejarlo rechazado.
+        if ((int) ($envio['Status'] ?? 0) === 400) {
+            try {
+                $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
+            } catch (RuntimeException) {
+                $enHacienda = null;
+            }
+
+            if ($enHacienda !== null) {
+                return $this->yaRecibido($document, $enHacienda, reenviado: true);
+            }
+        }
 
         [$estado, $causa] = self::estadoRecepcion($envio);
         $document->update([
@@ -204,6 +236,60 @@ class DocumentEmissionService
             'estado' => $estado,
             'recepcion' => ['status' => (int) ($envio['Status'] ?? 0), 'causa' => $causa],
             'reenviado' => true,
+        ];
+    }
+
+    /**
+     * Hacienda ya tenía la clave: queda como recibido (202) con el estado que reporta.
+     * `reenviado` es true si se llegó a reenviar y la recepción lo tomó como repetido (400).
+     * Los siguientes intentos con la misma Idempotency-Key son un replay.
+     *
+     * @return array<string, mixed>
+     */
+    private function yaRecibido(Document $document, object $enHacienda, bool $reenviado = false): array
+    {
+        $indEstado = $enHacienda->{'ind-estado'} ?? null;
+        $cambios = [
+            'estado' => is_string($indEstado) && $indEstado !== '' ? strtolower($indEstado) : self::ESTADO_ENVIADO,
+            'recepcion_status' => 202,
+            'mensaje_error' => null,
+        ];
+        $respuesta = $enHacienda->{'respuesta-xml'} ?? null;
+        if (is_string($respuesta) && $respuesta !== '') {
+            $cambios['respuesta_mh_base64'] = $respuesta;
+        }
+        $document->update($cambios);
+
+        return [
+            'clave' => $document->clave,
+            'consecutivo' => $document->consecutivo,
+            'xmlFirmado' => $document->xml_enviado_base64,
+            'envio' => ['Status' => 202],
+            'document_id' => $document->id,
+            'estado' => $document->estado,
+            'recepcion' => ['status' => 202, 'causa' => null],
+            'reenviado' => $reenviado,
+            'ya_recibido' => true,
+        ];
+    }
+
+    /**
+     * No se pudo preguntar a Hacienda: no se reenvía (podría tenerlo) y el documento no cambia.
+     *
+     * @return array<string, mixed>
+     */
+    private function sinConfirmar(Document $document, string $causa): array
+    {
+        return [
+            'clave' => $document->clave,
+            'consecutivo' => $document->consecutivo,
+            'xmlFirmado' => $document->xml_enviado_base64,
+            'envio' => ['Status' => 0],
+            'document_id' => $document->id,
+            'estado' => $document->estado,
+            'recepcion' => ['status' => 0, 'causa' => $causa],
+            'reenviado' => false,
+            'sin_confirmar' => true,
         ];
     }
 
