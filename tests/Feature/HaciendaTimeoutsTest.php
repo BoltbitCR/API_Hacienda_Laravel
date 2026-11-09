@@ -18,9 +18,12 @@ test('las llamadas a Hacienda pasan connect_timeout y timeout de la config', fun
     Http::fake(function ($request, array $options) use (&$opciones) {
         $opciones[] = [$request->url(), $options['connect_timeout'] ?? null, $options['timeout'] ?? null];
 
-        return str_contains($request->url(), 'idp')
-            ? Http::response(['access_token' => 't', 'expires_in' => 300], 200)
-            : Http::response('[]', 200);
+        return match (true) {
+            str_contains($request->url(), 'idp') => Http::response(['access_token' => 't', 'expires_in' => 300], 200),
+            // La consulta de estado necesita un estado: un 200 sin él es un error.
+            str_ends_with($request->url(), str_repeat('5', 50)) => Http::response(['ind-estado' => 'aceptado'], 200),
+            default => Http::response('[]', 200),
+        };
     });
 
     app(TokenService::class)->accessToken('api-stag', 'u', 'p');

@@ -86,7 +86,7 @@ test('misma Idempotency-Key tras un 0 de recepción: reenvía el mismo XML y ter
         '*recepcion*' => function ($req) use (&$recepciones) {
             // Antes de reenviar se consulta la clave: Hacienda no la conoce.
             if ($req->method() === 'GET') {
-                return Http::response('', 404);
+                return claveNoRecibida();
             }
             $recepciones[] = $req->data();
 
@@ -121,7 +121,7 @@ test('misma Idempotency-Key tras un 0 de recepción: reenvía el mismo XML y ter
 
 test('si el reenvío vuelve a fallar sigue en error y se puede reintentar', function () {
     [, , $token] = emisorDePrueba();
-    haciendaFalsa(fn ($req) => $req->method() === 'GET' ? Http::response('', 404) : Http::response('', 503));
+    haciendaFalsa(fn ($req) => $req->method() === 'GET' ? claveNoRecibida() : Http::response('', 503));
 
     $primera = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-503')->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502);
     $segunda = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-503')->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502);
@@ -237,7 +237,7 @@ test('si no se puede consultar a Hacienda, no reenvía y el documento no cambia'
         '*idp*' => Http::response(['access_token' => 'fake-token', 'expires_in' => 300], 200),
         '*recepcion*' => function ($req) use (&$envios, &$hacienda) {
             if ($req->method() === 'GET') {
-                return $hacienda ? throw new ConnectionException('Connection refused') : Http::response('', 404);
+                return $hacienda ? throw new ConnectionException('Connection refused') : claveNoRecibida();
             }
             $envios++;
 
@@ -250,7 +250,7 @@ test('si no se puede consultar a Hacienda, no reenvía y el documento no cambia'
     $antes = Document::find($id)->only(['estado', 'recepcion_status', 'mensaje_error']);
 
     $segunda = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-sin-consulta')
-        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502);
+        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502)->assertHeader('Retry-After', '60');
 
     expect($envios)->toBe(1)
         ->and($segunda->json('sin_confirmar'))->toBeTrue()
@@ -263,4 +263,56 @@ test('si no se puede consultar a Hacienda, no reenvía y el documento no cambia'
     $this->withToken($token)->withHeader('Idempotency-Key', 'venta-sin-consulta')
         ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(201)->assertJsonPath('reenviado', true);
     expect($envios)->toBe(2);
+});
+
+test('si el reenvío sale repetido porque Hacienda ya lo tenía, lo deja recibido y no rechazado', function () {
+    [, , $token] = emisorDePrueba();
+    $envios = 0;
+    $consultas = 0;
+    Http::fake([
+        '*idp*' => Http::response(['access_token' => 'fake-token', 'expires_in' => 300], 200),
+        '*recepcion*' => function ($req) use (&$envios, &$consultas) {
+            if ($req->method() === 'GET') {
+                // La primera consulta todavía no la muestra; después del repetido, sí.
+                return ++$consultas === 1 ? claveNoRecibida() : Http::response(['clave' => 'x', 'ind-estado' => 'aceptado'], 200);
+            }
+
+            return ++$envios === 1
+                ? throw new ConnectionException('Operation timed out')
+                : Http::response('', 400, ['X-Error-Cause' => 'El comprobante ya fue recibido anteriormente.']);
+        },
+    ]);
+
+    $id = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-repetida')
+        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502)->json('document_id');
+    $segunda = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-repetida')
+        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(201);
+
+    expect($envios)->toBe(2)
+        ->and($consultas)->toBe(2)
+        ->and($segunda->json('ya_recibido'))->toBeTrue()
+        ->and($segunda->json('reenviado'))->toBeTrue()
+        ->and($segunda->json('estado'))->toBe('aceptado');
+    $this->assertDatabaseHas('documents', ['id' => $id, 'estado' => 'aceptado', 'recepcion_status' => 202, 'mensaje_error' => null]);
+});
+
+test('si el reenvío sale rechazado y Hacienda no tiene la clave, queda rechazado', function () {
+    [, , $token] = emisorDePrueba();
+    $envios = 0;
+    haciendaFalsa(function ($req) use (&$envios) {
+        if ($req->method() === 'GET') {
+            return claveNoRecibida();
+        }
+
+        return ++$envios === 1
+            ? throw new ConnectionException('Operation timed out')
+            : Http::response('', 400, ['X-Error-Cause' => 'El XML no es válido.']);
+    });
+
+    $id = $this->withToken($token)->withHeader('Idempotency-Key', 'venta-rechazada')
+        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(502)->json('document_id');
+    $this->withToken($token)->withHeader('Idempotency-Key', 'venta-rechazada')
+        ->postJson('/api/v1/documents', cuerpoFe())->assertStatus(422)->assertJsonPath('reenviado', true);
+
+    $this->assertDatabaseHas('documents', ['id' => $id, 'estado' => 'rechazado', 'recepcion_status' => 400]);
 });

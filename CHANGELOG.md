@@ -11,8 +11,10 @@ indique lo contrario.
   `0`/`5xx`, el API consulta la clave en Hacienda. El corte de red pudo darse después de que
   Hacienda lo recibió, y reenviarlo lo haría ver repetido. Si Hacienda ya la tiene, no reenvía:
   el documento queda con recepción `202` y el estado que Hacienda reporta, y responde `201` con
-  `ya_recibido: true`. Si contesta que no la conoce (`404`), reenvía como antes. Si no se puede
-  consultar, responde `502` con `sin_confirmar: true`, no reenvía y el documento no cambia.
+  `ya_recibido: true`. Si contesta que no la conoce, reenvía como antes; si el reenvío sale `400`
+  y Hacienda ya muestra la clave, también queda recibido (`ya_recibido` y `reenviado: true`) en
+  vez de rechazado. Si no se puede consultar, responde `502` con `sin_confirmar: true` y
+  `Retry-After`, no reenvía y el documento no cambia.
 - **[contrato]** Repetir `POST /documents` con la misma `Idempotency-Key` reintenta lo
   que Hacienda no recibió en vez de devolver el error para siempre: si la recepción
   respondió `0`/`5xx`, reenvía el **mismo XML firmado** (misma clave y consecutivo, token
@@ -27,6 +29,10 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- **[contrato]** `GET /documents/{id}/status` y `GET /hacienda/status` responden `404` cuando
+  Hacienda no tiene la clave. Hacienda contesta a eso con `400` y `X-Error-Cause` «El
+  comprobante [clave] no ha sido recibido.», no con `404`, y salía como `502`. Un `200` sin
+  estado ya no se toma como «no la tiene»: sale `502`.
 - **[contrato]** `POST /documents` ya no responde `201` si Hacienda no recibió el
   comprobante. **No aditivo**: recepción `202` → `201`; `400` → `422` con `message` (la
   causa), `document_id`, `clave`, `estado: rechazado` y `recepcion`; sin conexión o

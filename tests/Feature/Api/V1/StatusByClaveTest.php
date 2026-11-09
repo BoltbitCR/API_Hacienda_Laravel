@@ -94,8 +94,8 @@ test('responde 404 cuando Hacienda no tiene la clave', function () {
 
     Http::fake([
         '*idp*' => Http::response(['access_token' => 'fake-token'], 200),
-        // Hacienda devuelve cuerpo vacío para una clave que no conoce.
-        '*recepcion*' => Http::response('', 404),
+        // Hacienda responde 400 «no ha sido recibido» a una clave que no conoce.
+        '*recepcion*' => claveNoRecibida(),
     ]);
 
     $this->withToken(tokenFor($user))

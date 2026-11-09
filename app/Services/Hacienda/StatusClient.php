@@ -48,11 +48,16 @@ class StatusClient
      * Estado del comprobante para la API REST, que necesita distinguir los
      * casos que consultar() mezcla.
      *
-     * @return object|null el estado (`ind-estado`, `respuesta-xml`…), o null si
-     *                     Hacienda no tiene esa clave (404 o cuerpo vacío).
+     * Hacienda responde a una clave que no recibió con 400 y `X-Error-Cause`
+     * «El comprobante [clave] no ha sido recibido.»; el 404 también se toma
+     * como «no la tiene».
      *
-     * @throws RuntimeException si no se pudo consultar: sin conexión, 5xx u otro
-     *                          error de Hacienda (el mensaje trae la causa).
+     * @return object|null el estado (`ind-estado`, `respuesta-xml`…), o null si
+     *                     Hacienda no tiene esa clave.
+     *
+     * @throws RuntimeException si no se pudo consultar: sin conexión, 5xx, otro
+     *                          error de Hacienda o un 200 sin estado (el mensaje
+     *                          trae la causa).
      */
     public function estado(string $clave, string $clientId, string $token): ?object
     {
@@ -64,18 +69,23 @@ class StatusClient
             throw new RuntimeException('No se pudo consultar Hacienda: '.$e->getMessage(), previous: $e);
         }
 
-        if ($response->notFound()) {
+        $causa = trim((string) $response->header('X-Error-Cause'));
+
+        if ($response->notFound() || ($response->status() === 400 && str_contains(mb_strtolower($causa), 'no ha sido recibido'))) {
             return null;
         }
 
         if (! $response->successful()) {
-            $causa = trim((string) $response->header('X-Error-Cause'));
             throw new RuntimeException("Hacienda respondió {$response->status()} a la consulta".($causa !== '' ? ": $causa" : '.'));
         }
 
+        // Un 200 sin estado no dice si Hacienda tiene la clave: no se toma como «no la tiene».
         $estado = json_decode($response->body());
+        if (! is_object($estado)) {
+            throw new RuntimeException("Hacienda respondió {$response->status()} a la consulta sin el estado del comprobante.");
+        }
 
-        return is_object($estado) ? $estado : null;
+        return $estado;
     }
 
     private function get(string $url, string $clave, string $token): Response

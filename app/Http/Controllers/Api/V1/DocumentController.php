@@ -157,7 +157,7 @@ class DocumentController extends Controller
                 return response()->json([
                     'message' => 'No se pudo confirmar con Hacienda si ya recibió el comprobante ('.$result['recepcion']['causa'].'); no se reenvió. Reintentar con la misma Idempotency-Key.',
                     ...$result,
-                ], 502);
+                ], 502, ['Retry-After' => (string) HaciendaUnavailableException::RETRY_AFTER_SECONDS]);
             }
 
             return $this->respuestaEmision($result, $result['recepcion']['status'], $result['estado']);

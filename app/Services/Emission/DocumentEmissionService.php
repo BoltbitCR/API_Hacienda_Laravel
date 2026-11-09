@@ -185,7 +185,7 @@ class DocumentEmissionService
 
         // Un 0/5xx guardado no prueba que Hacienda no lo tenga: el corte pudo ser después de que
         // lo recibió. Reenviar lo que ya tiene lo haría ver repetido. Se pregunta por la clave y
-        // solo se reenvía si Hacienda responde que no la conoce (404).
+        // solo se reenvía si Hacienda responde que no la conoce.
         try {
             $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
         } catch (RuntimeException $e) {
@@ -205,6 +205,20 @@ class DocumentEmissionService
             $clientId,
             $accessToken,
         );
+
+        // Un 400 al reenviar puede ser el repetido de algo que Hacienda ya tenía y todavía no
+        // mostraba en la consulta. Se vuelve a preguntar antes de dejarlo rechazado.
+        if ((int) ($envio['Status'] ?? 0) === 400) {
+            try {
+                $enHacienda = $this->status->estado((string) $document->clave, $clientId, $accessToken);
+            } catch (RuntimeException) {
+                $enHacienda = null;
+            }
+
+            if ($enHacienda !== null) {
+                return $this->yaRecibido($document, $enHacienda, reenviado: true);
+            }
+        }
 
         [$estado, $causa] = self::estadoRecepcion($envio);
         $document->update([
@@ -226,12 +240,13 @@ class DocumentEmissionService
     }
 
     /**
-     * Hacienda ya tenía la clave: queda como recibido (202) con el estado que reporta, sin
-     * reenviar nada. Los siguientes intentos con la misma Idempotency-Key son un replay.
+     * Hacienda ya tenía la clave: queda como recibido (202) con el estado que reporta.
+     * `reenviado` es true si se llegó a reenviar y la recepción lo tomó como repetido (400).
+     * Los siguientes intentos con la misma Idempotency-Key son un replay.
      *
      * @return array<string, mixed>
      */
-    private function yaRecibido(Document $document, object $enHacienda): array
+    private function yaRecibido(Document $document, object $enHacienda, bool $reenviado = false): array
     {
         $indEstado = $enHacienda->{'ind-estado'} ?? null;
         $cambios = [
@@ -253,7 +268,7 @@ class DocumentEmissionService
             'document_id' => $document->id,
             'estado' => $document->estado,
             'recepcion' => ['status' => 202, 'causa' => null],
-            'reenviado' => false,
+            'reenviado' => $reenviado,
             'ya_recibido' => true,
         ];
     }
