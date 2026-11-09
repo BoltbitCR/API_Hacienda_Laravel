@@ -147,3 +147,54 @@ test('emisor y receptor con cédula jurídica alfanumérica validan contra el XS
     preg_match('#<Clave>([^<]+)</Clave>#', $xml, $m);
     expect(substr($m[1], 9, 12))->toBe('003101A00001');
 });
+
+/*
+ * Con dos o más medios de pago, Hacienda rechaza el comprobante si la suma de los TotalMedioPago no
+ * coincide con TotalComprobante (Anexos 4.4, nota de TotalComprobante). Los dos son DecimalDineroType
+ * (18,5 en el XSD): recortar el medio a 2 decimales hacía que la suma no cuadrara con un total de
+ * 5 decimales, el caso normal de un precio con IVA.
+ */
+test('con varios medios de pago cada monto va con 5 decimales y la suma cuadra con el total', function (string $tipo, array $ajustes) {
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), $tipo, array_replace_recursive([
+        'medios_pago' => [
+            ['tipoMedioPago' => '01', 'totalMedioPago' => 2000],
+            ['tipoMedioPago' => '06', 'totalMedioPago' => 2499.9877],
+        ],
+        'detalles' => [[
+            'cantidad' => 3, 'precioUnitario' => 1327.43,
+            'montoTotal' => 3982.29, 'subTotal' => 3982.29,
+            'impuestoNeto' => 517.6977, 'montoTotalLinea' => 4499.9877, 'baseImponible' => 3982.29,
+            'impuesto' => [['codigo' => '01', 'codigoTarifa' => '08', 'tarifa' => 13.0, 'monto' => 517.6977]],
+        ]],
+        'total_ventas' => 3982.29,
+        'total_ventas_neta' => 3982.29,
+        'total_comprobante' => 4499.9877,
+        'params' => [
+            'total_serv_gravados' => 3982.29,
+            'total_gravado' => 3982.29,
+            'total_impuestos' => 517.6977,
+            'totalDesgloseImpuesto' => json_encode([
+                ['Codigo' => '01', 'CodigoTarifaIVA' => '08', 'TotalMontoImpuesto' => 517.6977],
+            ]),
+        ],
+    ], $ajustes));
+
+    expect($errores)->toBe([]);
+
+    $dom = new DOMDocument;
+    $dom->loadXML($xml);
+    $medios = array_map(fn (DOMNode $n): string => $n->textContent, iterator_to_array($dom->getElementsByTagName('TotalMedioPago')));
+    $total = $dom->getElementsByTagName('TotalComprobante')->item(0)->textContent;
+
+    expect($medios)->toBe(['2000.00000', '2499.98770'])
+        ->and(bcadd($medios[0], $medios[1], 5))->toBe(bcadd($total, '0', 5));
+})->with([
+    'FE' => ['FE', []],
+    'TE' => ['TE', []],
+    'NC' => ['NC', referenciaParaXsd('01', '01')],
+    'ND' => ['ND', referenciaParaXsd('01', '02')],
+    // La FEC 4.4 exige InformacionReferencia (tipo 16: comprobante del proveedor no domiciliado).
+    'FEC' => ['FEC', referenciaParaXsd('16', '04', 'F-001')],
+    // La LineaDetalle de la FEE no tiene ImpuestoNeto en el XSD: con 0 el generador lo omite.
+    'FEE' => ['FEE', ['detalles' => [['impuestoNeto' => 0]]]],
+]);

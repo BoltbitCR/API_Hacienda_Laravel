@@ -21,6 +21,12 @@ indique lo contrario.
   recepción) (#54).
 
 ### Corregido
+- `TotalMedioPago` sale con 5 decimales (era 2) en FE, NC, ND, TE, FEC y FEE, como ya salía en
+  el REP. Es `DecimalDineroType` en el XSD, igual que `TotalComprobante`, y con dos o más medios
+  de pago Hacienda rechaza el comprobante si su suma no coincide con el total (Anexos 4.4, nota
+  de `TotalComprobante`). Recortado a 2 decimales, un total con IVA como `4499.98770` pagado en
+  dos medios nunca cuadraba. Cambia la respuesta de `genXML` en `/api.php`: los fixtures golden
+  de paridad se actualizaron a propósito.
 - **[contrato]** `POST /documents` ya no responde `201` si Hacienda no recibió el
   comprobante. **No aditivo**: recepción `202` → `201`; `400` → `422` con `message` (la
   causa), `document_id`, `clave`, `estado: rechazado` y `recepcion`; sin conexión o
