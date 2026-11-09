@@ -33,6 +33,10 @@ indique lo contrario.
   en la FEC, como en NC, ND y REP. **No aditivo**: una FEC sin referencia pasa de `201` a `422`.
   El XSD 4.4 de la factura electrónica de compra la declara obligatoria, así que sin ella el
   XML no validaba y Hacienda la rechazaba. El endpoint legacy (`/api.php`) queda igual (#68).
+- La FEE ya no escribe `ImpuestoNeto` en `LineaDetalle`: ese nodo no existe en el XSD 4.4 de
+  exportación (después de `Impuesto` va `MontoTotalLinea`), así que toda FEE con una línea
+  gravada salía con un XML inválido y Hacienda la rechazaba. Cambia la respuesta de `genXML`
+  en `/api.php`: el fixture golden de la FEE se actualizó a propósito (#67).
 - **[contrato]** `GET /documents/{id}/status` y `GET /hacienda/status` responden `404` cuando
   Hacienda no tiene la clave. Hacienda contesta a eso con `400` y `X-Error-Cause` «El
   comprobante [clave] no ha sido recibido.», no con `404`, y salía como `502`. Un `200` sin
