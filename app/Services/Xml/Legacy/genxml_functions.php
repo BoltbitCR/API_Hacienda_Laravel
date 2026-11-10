@@ -3768,6 +3768,8 @@ function genXMLMr()
     return $arrayResp;
 }
 
+// DESVÍO DEL VERBATIM (#72): CodigoActividadEmisor es minOccurs=0 en la FEC
+// (el proveedor puede no estar inscrito); vacío ya no se escribe.
 function genXMLFec()
 {
     // Datos contribuyente
@@ -3861,8 +3863,11 @@ function genXMLFec()
     }
 
     // Validate string sizes
-    $codigoActividadEmisor = str_pad($codigoActividadEmisor, 6, "0", STR_PAD_LEFT);
-    if (strlen($codigoActividadEmisor) != CODIGOACTIVIDADSIZE) {
+    // DESVÍO DEL VERBATIM (#72): sin actividad del proveedor no se rellena a 000000.
+    if (_ne74($codigoActividadEmisor)) {
+        $codigoActividadEmisor = str_pad($codigoActividadEmisor, 6, "0", STR_PAD_LEFT);
+    }
+    if (_ne74($codigoActividadEmisor) && strlen($codigoActividadEmisor) != CODIGOACTIVIDADSIZE) {
         error_log("codigoActividadSize is: " . CODIGOACTIVIDADSIZE . " and codigoActividadEmisor is " . $codigoActividadEmisor);
     }
 
@@ -3906,7 +3911,7 @@ function genXMLFec()
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
         <Clave>' . _xml($clave) . '</Clave>
         <ProveedorSistemas>' . _xml($proveedorSistemas) . '</ProveedorSistemas>
-        <CodigoActividadEmisor>' . _xml($codigoActividadEmisor) . '</CodigoActividadEmisor>
+        ' . (_ne74($codigoActividadEmisor) ? '<CodigoActividadEmisor>' . _xml($codigoActividadEmisor) . '</CodigoActividadEmisor>' : '') . '
         <CodigoActividadReceptor>' . _xml($codigoActividadReceptor) . '</CodigoActividadReceptor>
         <NumeroConsecutivo>' . _xml($consecutivo) . '</NumeroConsecutivo>
         <FechaEmision>' . _xml($fechaEmision) . '</FechaEmision>
@@ -3954,11 +3959,15 @@ function genXMLFec()
             </Telefono>';
     }
 
+    // DESVÍO DEL VERBATIM (#72): el original cerraba </Emisor> solo si había
+    // correo válido. En la FEC el emisor es el proveedor y el correo es
+    // opcional (XSD 4.4: minOccurs=0); sin correo salía un XML roto.
     if (_ne74($emisorEmail) && preg_match(EMAIL_REGEX, trim($emisorEmail))) {
-        $xmlString .= '<CorreoElectronico>' . _xml(trim($emisorEmail)) . '</CorreoElectronico></Emisor>';
-    } else {
+        $xmlString .= '<CorreoElectronico>' . _xml(trim($emisorEmail)) . '</CorreoElectronico>';
+    } elseif (_ne74($emisorEmail)) {
         error_log(sprintf("Invalid email format: '%s' does not meet the regex pattern: %s", $emisorEmail, EMAIL_REGEX));
     }
+    $xmlString .= '</Emisor>';
 
 
     $xmlString .= '<Receptor>

@@ -51,6 +51,13 @@ class DocumentEmissionService
         'MR' => 'genXMLMr',
     ];
 
+    /**
+     * Factura electrónica de compra: la empresa COMPRA, así que va como
+     * Receptor y la firma ella (Anexos 4.4, pág. 60: «debe de ser firmada
+     * por el Receptor que es quien la emite»); el Emisor es el proveedor.
+     */
+    public const COMPRA = 'FEC';
+
     /** Mensaje receptor (nota 11) => tipo de confirmación de la clave (nota 3). */
     public const MR_TIPOS = ['1' => 'CCE', '2' => 'CPCE', '3' => 'RCE'];
 
@@ -539,17 +546,36 @@ class DocumentEmissionService
     }
 
     /**
-     * XML del comprobante con el generador verbatim: emisor de la empresa +
-     * datos del cliente + clave y consecutivo ya resueltos.
+     * XML del comprobante con el generador verbatim: la empresa + datos del
+     * cliente + clave y consecutivo ya resueltos. La empresa va como emisor,
+     * salvo en la FEC, donde es el receptor y el proveedor (emisor_*) viene
+     * del cliente.
      */
     private function buildXml(Company $company, string $tipo, array $documentParams, string $clave, string $consecutivo): string
     {
+        $compra = $tipo === self::COMPRA;
+        $empresa = $this->empresaParams($company, $compra ? 'receptor_' : 'emisor_');
+
         $merged = array_merge(
-            $this->emisorParams($company),
+            $this->comunesParams($company),
+            $compra ? [] : $empresa,
             $documentParams,
+            // En la FEC el receptor es quien firma: el cliente no lo puede
+            // cambiar, o la firma no coincidiría con él (rechazo -60).
+            $compra ? $empresa : [],
             ['clave' => $clave, 'consecutivo' => $consecutivo],
             $tipo === 'MR' ? $this->mrParams($company, $documentParams, $consecutivo) : [],
         );
+        // El proveedor de la FEC llega del cliente: sus códigos de ubicación
+        // se rellenan igual que los de la empresa (1, 2 y 2 dígitos).
+        if ($compra) {
+            foreach (['emisor_provincia' => 1, 'emisor_canton' => 2, 'emisor_distrito' => 2] as $key => $length) {
+                if (filled($merged[$key] ?? null)) {
+                    $merged[$key] = $this->geoCode((string) $merged[$key], $length);
+                }
+            }
+        }
+
         // El XSD exige el código (01–06); el catálogo heredado guarda nombres.
         foreach (['emisor_tipo_identif', 'receptor_tipo_identif'] as $key) {
             if (isset($merged[$key])) {
@@ -630,6 +656,19 @@ class DocumentEmissionService
             'comprobanteXml' => base64_encode($xmlFirmado),
         ];
 
+        // El JSON nombra a las mismas partes que el XML: en la FEC el emisor
+        // es el proveedor y el receptor, la empresa que la firma y envía.
+        if ($tipo === self::COMPRA) {
+            $payload['emisor'] = [
+                'tipoIdentificacion' => TipoIdentificacion::codigo((string) $documentParams['emisor_tipo_identif']),
+                'numeroIdentificacion' => (string) $documentParams['emisor_num_identif'],
+            ];
+            $payload['receptor'] = [
+                'tipoIdentificacion' => TipoIdentificacion::codigo((string) $company->tipo_cedula),
+                'numeroIdentificacion' => $this->cedulaEmisor($company),
+            ];
+        }
+
         if ($tipo === 'MR') {
             $payload['emisor'] = [
                 'tipoIdentificacion' => (string) $documentParams['tipo_identificacion_emisor'],
@@ -689,33 +728,52 @@ class DocumentEmissionService
     }
 
     /**
-     * Mapea los datos del emisor de la empresa a los parámetros del generador.
+     * Lo que no es de ninguna de las dos partes: proveedor de sistemas,
+     * moneda y tipo de cambio.
      *
      * @return array<string, string>
      */
-    private function emisorParams(Company $company): array
+    private function comunesParams(Company $company): array
     {
         return [
             // Cédula del proveedor del sistema (Anexos pág. 18); si es
-            // desarrollo propio, la del emisor.
+            // desarrollo propio, la del obligado que emite (la empresa,
+            // también en la FEC).
             'proveedor_sistemas' => filled($company->proveedor_sistemas)
                 ? ClaveService::normalizarCedula((string) $company->proveedor_sistemas)
                 : $this->cedulaEmisor($company),
-            'emisor_nombre' => (string) $company->nombre,
-            'emisor_tipo_identif' => (string) $company->tipo_cedula,
-            'emisor_num_identif' => $this->cedulaEmisor($company),
-            'emisor_nombre_comercial' => (string) $company->nombre_comercial,
-            'emisor_provincia' => $this->geoCode($company->id_provincia, 1),
-            'emisor_canton' => $this->geoCode($company->id_canton, 2),
-            'emisor_distrito' => $this->geoCode($company->id_distrito, 2),
-            'emisor_barrio' => $this->barrioName($company),
-            'emisor_otras_senas' => (string) $company->sennas,
-            'emisor_cod_pais_tel' => (string) $company->tel_cod_pais,
-            'emisor_tel' => (string) $company->tel_numero,
-            'emisor_email' => (string) $company->email,
             'cod_moneda' => 'CRC',
             'tipo_cambio' => (string) ($company->tipo_cambio ?: '1'),
         ];
+    }
+
+    /**
+     * Los datos de la empresa con el prefijo de la parte que ocupa en el
+     * comprobante: `emisor_` en general, `receptor_` en la FEC.
+     *
+     * @return array<string, string>
+     */
+    private function empresaParams(Company $company, string $prefijo): array
+    {
+        $datos = [
+            'nombre' => (string) $company->nombre,
+            'tipo_identif' => (string) $company->tipo_cedula,
+            'num_identif' => $this->cedulaEmisor($company),
+            'nombre_comercial' => (string) $company->nombre_comercial,
+            'provincia' => $this->geoCode($company->id_provincia, 1),
+            'canton' => $this->geoCode($company->id_canton, 2),
+            'distrito' => $this->geoCode($company->id_distrito, 2),
+            'barrio' => $this->barrioName($company),
+            'otras_senas' => (string) $company->sennas,
+            'cod_pais_tel' => (string) $company->tel_cod_pais,
+            'tel' => (string) $company->tel_numero,
+            'email' => (string) $company->email,
+        ];
+
+        return array_combine(
+            array_map(fn (string $campo): string => $prefijo.$campo, array_keys($datos)),
+            $datos,
+        );
     }
 
     /**
