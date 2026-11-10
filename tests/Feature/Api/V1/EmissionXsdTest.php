@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Xsd\XsdValidatorService;
 use Database\Seeders\CatalogSeeder;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 
 /**
  * Emisión de punta a punta por POST /api/v1/documents con las referencias
@@ -61,6 +62,32 @@ const CLAVE_ORIGINAL = '50601102600310123456700100001010000000001100000001';
  */
 function emitirYValidar(string $token, string $tipo, array $extra = []): array
 {
+    $response = emitir($token, $tipo, $extra);
+
+    $response->assertStatus(201);
+
+    $xmlFirmado = base64_decode($response->json('xmlFirmado'));
+    $resultado = app(XsdValidatorService::class)->validate($xmlFirmado, $tipo);
+
+    return [$xmlFirmado, $resultado['errors']];
+}
+
+/** Proveedor de una FEC: en la factura de compra es el EMISOR. */
+const PROVEEDOR_FEC = [
+    'emisor_nombre' => 'Proveedor Ejemplo',
+    'emisor_tipo_identif' => '01',
+    'emisor_num_identif' => '109990999',
+    'emisor_provincia' => '2',
+    'emisor_canton' => '10',
+    // Sin el cero: la API lo rellena como los de la empresa.
+    'emisor_distrito' => '1',
+    'emisor_otras_senas' => 'Del parque 200 m norte',
+    'codigo_actividad_receptor' => '6201.0',
+];
+
+/** POST /api/v1/documents con un comprobante base válido para el tipo. */
+function emitir(string $token, string $tipo, array $extra = []): TestResponse
+{
     (new CatalogSeeder)->run();
 
     Http::fake([
@@ -68,7 +95,15 @@ function emitirYValidar(string $token, string $tipo, array $extra = []): array
         '*recepcion*' => Http::response('', 202),
     ]);
 
-    $response = test()->withToken($token)->postJson('/api/v1/documents', array_replace_recursive([
+    // En la FEC el receptor es la empresa: el cliente manda al proveedor.
+    $partes = $tipo === 'FEC' ? PROVEEDOR_FEC : [
+        'receptor_nombre' => 'Cliente ABC',
+        'receptor_tipo_identif' => '01',
+        'receptor_num_identif' => '208830333',
+        'receptor_email' => 'cliente@example.com',
+    ];
+
+    return test()->withToken($token)->postJson('/api/v1/documents', array_replace_recursive([
         'tipo' => $tipo,
         'environment' => 'stag',
         'fecha_emision' => '2026-10-17T10:00:00-06:00',
@@ -94,21 +129,10 @@ function emitirYValidar(string $token, string $tipo, array $extra = []): array
                 ['Codigo' => '01', 'CodigoTarifaIVA' => '08', 'TotalMontoImpuesto' => 130],
             ]),
         ],
-        'receptor_nombre' => 'Cliente ABC',
-        'receptor_tipo_identif' => '01',
-        'receptor_num_identif' => '208830333',
-        'receptor_email' => 'cliente@example.com',
-    ], $extra));
-
-    $response->assertStatus(201);
-
-    $xmlFirmado = base64_decode($response->json('xmlFirmado'));
-    $resultado = app(XsdValidatorService::class)->validate($xmlFirmado, $tipo);
-
-    return [$xmlFirmado, $resultado['errors']];
+    ], $partes, $extra));
 }
 
-function referenciaParaXsd(string $tipoDoc, string $codigo, string $numero = CLAVE_ORIGINAL): array
+function referenciaParaXsd(string $tipoDoc, string $codigo, string $numero = CLAVE_ORIGINAL, array $extra = []): array
 {
     return ['informacion_referencia' => [[
         'tipoDoc' => $tipoDoc,
@@ -116,7 +140,14 @@ function referenciaParaXsd(string $tipoDoc, string $codigo, string $numero = CLA
         'fechaEmision' => '2026-09-30T10:00:00-06:00',
         'codigo' => $codigo,
         'razon' => 'Referencia de prueba',
+        ...$extra,
     ]]];
+}
+
+/** La referencia de una FEC al papel del proveedor (tipo 99 «Otros»). */
+function referenciaPapelProveedor(): array
+{
+    return referenciaParaXsd('99', '04', '000318', ['tipoDocOtro' => 'Factura en papel del proveedor']);
 }
 
 test('el comprobante con la referencia nueva valida contra el XSD 4.4', function (string $tipo, string $tipoDoc, string $codigo) {
@@ -206,4 +237,113 @@ test('la FEE con una línea gravada valida contra el XSD 4.4 y no lleva Impuesto
     expect($errores)->toBe([])
         ->and($xml)->not->toContain('<ImpuestoNeto>')
         ->toContain('<Monto>130</Monto>');
+});
+
+/*
+ * FEC (#72): la empresa COMPRA, así que va como Receptor y es quien firma
+ * (Anexos 4.4, pág. 60); el Emisor es el proveedor. Con los papeles al
+ * revés Hacienda la rechaza con -60 «El contribuyente que firma la factura
+ * electrónica no es el receptor».
+ */
+test('la FEC lleva a la empresa como receptor y al proveedor como emisor', function () {
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEC', referenciaPapelProveedor());
+
+    expect($errores)->toBe([]);
+    preg_match('#<Emisor>(.*?)</Emisor>#s', $xml, $emisor);
+    preg_match('#<Receptor>(.*?)</Receptor>#s', $xml, $receptor);
+    expect($emisor[1])->toContain('<Nombre>Proveedor Ejemplo</Nombre>')->toContain('<Numero>109990999</Numero>')
+        ->and($receptor[1])->toContain('<Nombre>ACME S.A.</Nombre>')->toContain('<Numero>3101234567</Numero>')
+        ->and($emisor[1])->toContain('<Canton>10</Canton>')->toContain('<Distrito>01</Distrito>')
+        ->and($xml)->toContain('<CodigoActividadReceptor>6201.0</CodigoActividadReceptor>')
+        // La clave sigue siendo de la empresa: es su numeración (nota 4.1).
+        ->and($xml)->toMatch('#<Clave>\d{9}003101234567#');
+
+    // El JSON de /recepcion nombra a las mismas partes que el XML.
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'recepcion')
+        && $request['emisor'] === ['tipoIdentificacion' => '01', 'numeroIdentificacion' => '109990999']
+        && $request['receptor'] === ['tipoIdentificacion' => '02', 'numeroIdentificacion' => '3101234567']);
+});
+
+test('la FEC a un proveedor sin correo cierra el Emisor y valida contra el XSD', function () {
+    // Sin correo ni actividad: el proveedor puede no estar inscrito.
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEC', referenciaParaXsd('16', '11', 'INV-1') + [
+        'params' => ['codigo_actividad_emisor' => null],
+    ]);
+
+    preg_match('#<Emisor>(.*?)</Emisor>#s', $xml, $emisor);
+    expect($errores)->toBe([])
+        ->and($emisor[1] ?? null)->not->toBeNull()->not->toContain('<CorreoElectronico>')
+        ->and($xml)->not->toContain('<CodigoActividadEmisor>');
+});
+
+test('la FEC a un extranjero no domiciliado no pide ubicación y va con la referencia 16', function () {
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEC', referenciaParaXsd('16', '11', 'INV-2026-0042') + [
+        'emisor_nombre' => 'Foreign Supplier LLC',
+        'emisor_tipo_identif' => '05',
+        'emisor_num_identif' => 'US123456',
+        'emisor_provincia' => null,
+        'emisor_canton' => null,
+        'emisor_distrito' => null,
+        'emisor_otras_senas' => null,
+        'emisor_otras_senas_extranjero' => '100 Main St, Springfield',
+    ]);
+
+    expect($errores)->toBe([])
+        ->and($xml)->toContain('<Tipo>05</Tipo>')
+        ->toContain('<OtrasSenasExtranjero>100 Main St, Springfield</OtrasSenasExtranjero>');
+});
+
+test('la FEC rechaza los datos que no van', function (array $cambio, string $campo) {
+    emitir(empresaEmisora(), 'FEC', referenciaPapelProveedor() + $cambio)
+        ->assertStatus(422)
+        ->assertJsonValidationErrors($campo);
+})->with([
+    'sin proveedor' => [['emisor_nombre' => null], 'emisor_nombre'],
+    'el proveedor como receptor' => [['receptor_nombre' => 'Proveedor Ejemplo'], 'receptor_nombre'],
+    'proveedor nacional sin ubicación' => [['emisor_provincia' => null], 'emisor_provincia'],
+    'sin la actividad de la empresa' => [['codigo_actividad_receptor' => null], 'codigo_actividad_receptor'],
+    'no domiciliado sin la referencia 16' => [['emisor_tipo_identif' => '05', 'emisor_num_identif' => 'US1'], 'informacion_referencia'],
+    // Nota al pie 18: el 06 solo vende bienes usados (condición 13); -502 en Hacienda.
+    'no contribuyente sin la condición 13' => [['emisor_tipo_identif' => '06', 'emisor_num_identif' => 'NC1'], 'condicion_venta'],
+    'condición 13 con un proveedor inscrito' => [['condicion_venta' => '13'], 'condicion_venta'],
+    // Tamaños del XSD 4.4.
+    'nombre del proveedor de menos de 5' => [['emisor_nombre' => 'Ana'], 'emisor_nombre'],
+    'actividad de la empresa sin 6 caracteres' => [['codigo_actividad_receptor' => '6201'], 'codigo_actividad_receptor'],
+    'señas de menos de 5' => [['emisor_otras_senas' => 'Ahí'], 'emisor_otras_senas'],
+    // `params` gana en el payload, así que se valida su valor.
+    'proveedor 05 escondido en params' => [['params' => ['emisor_tipo_identif' => '05']], 'informacion_referencia'],
+]);
+
+test('una referencia de más de 10 años no se acepta', function () {
+    emitir(empresaEmisora(), 'NC', referenciaParaXsd('01', '01', CLAVE_ORIGINAL, [
+        'fechaEmision' => now()->subYears(10)->subDays(2)->toIso8601String(),
+    ]))->assertStatus(422)->assertJsonValidationErrors('informacion_referencia.0.fechaEmision');
+});
+
+test('la FEC a un no contribuyente va con la condición 13 y sin ubicación', function () {
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEC', referenciaPapelProveedor() + [
+        'condicion_venta' => '13',
+        'emisor_tipo_identif' => '06',
+        'emisor_num_identif' => 'NC0000000001',
+        'emisor_provincia' => null,
+        'emisor_canton' => null,
+        'emisor_distrito' => null,
+        'emisor_otras_senas' => null,
+    ]);
+
+    expect($errores)->toBe([])
+        ->and($xml)->toContain('<CondicionVenta>13</CondicionVenta>')
+        ->toContain('<Tipo>06</Tipo>');
+});
+
+test('la condición 13 solo se usa en la FEC', function () {
+    emitir(empresaEmisora(), 'FE', ['condicion_venta' => '13'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('condicion_venta');
+});
+
+test('en la FEC no se acepta otro receptor ni por params', function () {
+    emitir(empresaEmisora(), 'FEC', referenciaPapelProveedor() + [
+        'params' => ['receptor_num_identif' => '999999999'],
+    ])->assertStatus(422)->assertJsonValidationErrors('receptor_num_identif');
 });

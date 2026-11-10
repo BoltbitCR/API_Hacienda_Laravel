@@ -3717,7 +3717,7 @@
             },
             "EmitDocumentRequest": {
                 "type": "object",
-                "description": "Solicitud de emisi\u00f3n de un comprobante electr\u00f3nico. El emisor sale de la\nempresa autenticada; el cliente env\u00eda el tipo, el ambiente y los datos del\ndocumento (receptor, detalles, medios de pago, totales, referencias\u2026).",
+                "description": "Solicitud de emisi\u00f3n de un comprobante electr\u00f3nico. El emisor sale de la\nempresa autenticada; el cliente env\u00eda el tipo, el ambiente y los datos del\ndocumento (receptor, detalles, medios de pago, totales, referencias\u2026).\nEn la factura electr\u00f3nica de compra (FEC) es al rev\u00e9s: la empresa es el\nreceptor y el cliente manda al proveedor en emisor_*.",
                 "properties": {
                     "tipo": {
                         "type": "string",

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Services\Emission\DocumentEmissionService;
 use App\Services\Xml\InformacionReferencia;
+use App\Services\Xml\TipoIdentificacion;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -12,9 +13,14 @@ use Illuminate\Validation\Validator;
  * Solicitud de emisión de un comprobante electrónico. El emisor sale de la
  * empresa autenticada; el cliente envía el tipo, el ambiente y los datos del
  * documento (receptor, detalles, medios de pago, totales, referencias…).
+ * En la factura electrónica de compra (FEC) es al revés: la empresa es el
+ * receptor y el cliente manda al proveedor en emisor_*.
  */
 class EmitDocumentRequest extends FormRequest
 {
+    /** Nota 5: «Venta Bienes Usados No Contribuyente», solo en la FEC. */
+    private const CONDICION_BIENES_USADOS = '13';
+
     public function authorize(): bool
     {
         return true;
@@ -25,7 +31,7 @@ class EmitDocumentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge([
             'tipo' => ['required', 'string', Rule::in(DocumentEmissionService::supportedTypes())],
             'environment' => ['sometimes', Rule::in(['stag', 'prod'])],
 
@@ -59,14 +65,55 @@ class EmitDocumentRequest extends FormRequest
             'informacion_referencia.*.tipoDoc' => ['required', 'string', Rule::in(InformacionReferencia::TIPOS_DOC)],
             'informacion_referencia.*.tipoDocOtro' => ['required_if:informacion_referencia.*.tipoDoc,99', 'nullable', 'string', 'min:5', 'max:100'],
             'informacion_referencia.*.numero' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', 'max:50'],
-            'informacion_referencia.*.fechaEmision' => ['required', 'date'],
+            // Hacienda rechaza una referencia de más de 10 años (pág. 58).
+            'informacion_referencia.*.fechaEmision' => ['required', 'date', 'after_or_equal:-10 years'],
             'informacion_referencia.*.codigo' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', Rule::in(InformacionReferencia::CODIGOS)],
             'informacion_referencia.*.codigoOtro' => ['required_if:informacion_referencia.*.codigo,99', 'nullable', 'string', 'min:5', 'max:100'],
             'informacion_referencia.*.razon' => ['required_unless:informacion_referencia.*.tipoDoc,'.InformacionReferencia::TIPO_MES_VENCIDO, 'nullable', 'string', 'min:3', 'max:180'],
 
             // Escape hatch: parámetros adicionales del generador legacy.
             'params' => ['sometimes', 'array'],
-        ] + $this->mensajeReceptorRules();
+        ] + $this->mensajeReceptorRules(),
+            // array_merge y no `+`: en la FEC pisa las reglas del receptor.
+            $this->compraRules());
+    }
+
+    /**
+     * Factura electrónica de compra: la empresa es el RECEPTOR (la firma y
+     * la envía) y el proveedor, el EMISOR (Anexos 4.4, págs. 18-23 y 60).
+     * Por eso el cliente manda al proveedor en emisor_* y no manda receptor.
+     *
+     * @return array<string, mixed>
+     */
+    private function compraRules(): array
+    {
+        if ($this->input('tipo') !== DocumentEmissionService::COMPRA) {
+            return [];
+        }
+
+        // Ubicación del emisor: obligatoria salvo extranjero no domiciliado
+        // (05) y no contribuyente (06) (cambio 14 de la bitácora de ajustes).
+        // Tamaños del XSD 4.4 de la FEC (EmisorType y UbicacionType).
+        $ubicacion = ['required_unless:emisor_tipo_identif,05,06', 'nullable', 'string', 'regex:/^\d{1,2}$/'];
+
+        return [
+            'emisor_nombre' => ['required', 'string', 'min:5', 'max:100'],
+            'emisor_tipo_identif' => ['required', Rule::in(array_keys(TipoIdentificacion::CODIGOS))],
+            'emisor_num_identif' => ['required', 'string', 'max:20'],
+            'emisor_provincia' => $ubicacion,
+            'emisor_canton' => $ubicacion,
+            'emisor_distrito' => $ubicacion,
+            'emisor_otras_senas' => ['required_unless:emisor_tipo_identif,05,06', 'nullable', 'string', 'min:5', 'max:250'],
+            'emisor_otras_senas_extranjero' => ['sometimes', 'nullable', 'string', 'min:5', 'max:300'],
+            'emisor_email' => ['sometimes', 'nullable', 'email', 'max:160'],
+            // La actividad del receptor es la de la empresa que compra:
+            // obligatoria en la FEC; la del proveedor, opcional.
+            'codigo_actividad_receptor' => ['required', 'string', 'size:6'],
+            'codigo_actividad_emisor' => ['sometimes', 'nullable', 'string', 'size:6'],
+            'receptor_nombre' => ['prohibited'],
+            'receptor_tipo_identif' => ['prohibited'],
+            'receptor_num_identif' => ['prohibited'],
+        ];
     }
 
     /**
@@ -107,6 +154,19 @@ class EmitDocumentRequest extends FormRequest
         $params = $this->input('params');
         $referencia = $this->input('informacion_referencia');
 
+        // En la FEC el proveedor y las actividades pueden venir en `params`
+        // (escape hatch). documentParams() deja ganar a `params`, así que se
+        // valida ESE valor: si no, un dato válido arriba y otro en `params`
+        // se saltaría las reglas.
+        if ($this->input('tipo') === DocumentEmissionService::COMPRA && is_array($params)) {
+            $this->merge(array_filter(
+                $params,
+                fn (string $clave): bool => str_starts_with($clave, 'emisor_') || str_starts_with($clave, 'receptor_')
+                    || str_starts_with($clave, 'codigo_actividad_') || $clave === 'condicion_venta',
+                ARRAY_FILTER_USE_KEY,
+            ));
+        }
+
         if ($referencia === null && is_array($params) && array_key_exists('informacion_referencia', $params)) {
             $referencia = $params['informacion_referencia'];
             unset($params['informacion_referencia']);
@@ -126,7 +186,7 @@ class EmitDocumentRequest extends FormRequest
     /** @return array<int, callable(Validator): void> */
     public function after(): array
     {
-        return [$this->validateReferenciasCruzadas(...)];
+        return [$this->validateReferenciasCruzadas(...), $this->validateProveedorNoDomiciliado(...)];
     }
 
     /**
@@ -174,6 +234,46 @@ class EmitDocumentRequest extends FormRequest
         }
     }
 
+    /**
+     * Reglas de los proveedores sin inscripción en la FEC (Anexos 4.4):
+     * - 05 extranjero no domiciliado: con la referencia 16 «Comprobante de
+     *   Proveedor No Domiciliado» (pág. 19).
+     * - 06 no contribuyente: solo con la condición de venta 13 «Venta Bienes
+     *   Usados No Contribuyente» (nota al pie 18; Hacienda rechaza con -502).
+     * - La condición 13 solo existe en la FEC y es la del 06 (nota al pie 24).
+     */
+    private function validateProveedorNoDomiciliado(Validator $validator): void
+    {
+        $compra = $this->input('tipo') === DocumentEmissionService::COMPRA;
+        $tipoEmisor = $this->input('emisor_tipo_identif');
+
+        if ($this->input('condicion_venta') === self::CONDICION_BIENES_USADOS && ! $compra) {
+            $validator->errors()->add('condicion_venta', 'La condición de venta 13 «Venta Bienes Usados No Contribuyente» solo se usa en la factura electrónica de compra.');
+        }
+
+        if (! $compra) {
+            return;
+        }
+
+        $tipos = array_column(array_filter((array) $this->input('informacion_referencia'), 'is_array'), 'tipoDoc');
+
+        if ($tipoEmisor === '05' && ! in_array(InformacionReferencia::TIPO_SOLO_FEC, $tipos, true)) {
+            $validator->errors()->add('informacion_referencia', 'Con un proveedor extranjero no domiciliado (05) la referencia tiene que ser la 16 «Comprobante de Proveedor No Domiciliado».');
+        }
+
+        // Y al revés: la 13 es la venta de bienes usados de un no
+        // contribuyente (nota al pie 24), así que va solo con el 06.
+        $usados = $this->input('condicion_venta') === self::CONDICION_BIENES_USADOS;
+
+        if ($tipoEmisor === '06' && ! $usados) {
+            $validator->errors()->add('condicion_venta', 'Con un proveedor no contribuyente (06) la condición de venta es la 13 «Venta Bienes Usados No Contribuyente».');
+        }
+
+        if ($usados && $tipoEmisor !== '06') {
+            $validator->errors()->add('condicion_venta', 'La condición de venta 13 «Venta Bienes Usados No Contribuyente» es para un proveedor no contribuyente (06).');
+        }
+    }
+
     /** @return array<string, string> */
     public function messages(): array
     {
@@ -190,11 +290,23 @@ class EmitDocumentRequest extends FormRequest
             'informacion_referencia.*.numero.required_unless' => 'Indica el número o la clave del documento de referencia.',
             'informacion_referencia.*.fechaEmision.required' => 'Indica la fecha de emisión del documento de referencia.',
             'informacion_referencia.*.fechaEmision.date' => 'La fecha de emisión de la referencia debe ser una fecha ISO-8601.',
+            'informacion_referencia.*.fechaEmision.after_or_equal' => 'Hacienda no acepta referencias de más de 10 años.',
             'informacion_referencia.*.codigo.required_unless' => 'Indica el código de referencia.',
             'informacion_referencia.*.codigo.in' => 'El código de referencia no está en la nota 9 de los Anexos 4.4.',
             'informacion_referencia.*.codigoOtro.required_if' => 'Con código 99 describe la referencia en codigoOtro.',
             'informacion_referencia.*.razon.required_unless' => 'Indica la razón de la referencia.',
             'informacion_referencia.*.razon.max' => 'La razón de la referencia admite como máximo 180 caracteres.',
+            'emisor_nombre.required' => 'En la factura electrónica de compra el emisor es el proveedor: indica su nombre en emisor_nombre.',
+            'emisor_tipo_identif.required' => 'Indica el tipo de identificación del proveedor en emisor_tipo_identif.',
+            'emisor_num_identif.required' => 'Indica la identificación del proveedor en emisor_num_identif.',
+            'emisor_provincia.required_unless' => 'La ubicación del proveedor (provincia, cantón, distrito y otras señas) es obligatoria salvo para extranjero no domiciliado (05) o no contribuyente (06).',
+            'emisor_canton.required_unless' => 'La ubicación del proveedor (provincia, cantón, distrito y otras señas) es obligatoria salvo para extranjero no domiciliado (05) o no contribuyente (06).',
+            'emisor_distrito.required_unless' => 'La ubicación del proveedor (provincia, cantón, distrito y otras señas) es obligatoria salvo para extranjero no domiciliado (05) o no contribuyente (06).',
+            'emisor_otras_senas.required_unless' => 'La ubicación del proveedor (provincia, cantón, distrito y otras señas) es obligatoria salvo para extranjero no domiciliado (05) o no contribuyente (06).',
+            'codigo_actividad_receptor.required' => 'En la factura electrónica de compra la actividad económica de la empresa va en codigo_actividad_receptor.',
+            'receptor_nombre.prohibited' => 'En la factura electrónica de compra el receptor es la empresa que la firma: los datos del proveedor van en emisor_*.',
+            'receptor_tipo_identif.prohibited' => 'En la factura electrónica de compra el receptor es la empresa que la firma: los datos del proveedor van en emisor_*.',
+            'receptor_num_identif.prohibited' => 'En la factura electrónica de compra el receptor es la empresa que la firma: los datos del proveedor van en emisor_*.',
         ];
     }
 
