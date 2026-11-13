@@ -239,6 +239,23 @@ test('la FEE con una línea gravada valida contra el XSD 4.4 y no lleva Impuesto
         ->toContain('<Monto>130</Monto>');
 });
 
+test('la FEE con otros cargos se genera y valida contra el XSD 4.4 (#74)', function () {
+    // Antes genXMLFee contaba $otrosCargos->otrosCargos sobre una lista: TypeError y 500.
+    [$xml, $errores] = emitirYValidar(empresaEmisora(), 'FEE', [
+        'otrosCargos' => [[
+            'tipoDocumentoOC' => '05', 'detalle' => 'Flete de exportación', 'montoCargo' => 50,
+        ]],
+        'total_comprobante' => 1180.00,
+        'medios_pago' => [['tipoMedioPago' => '01', 'totalMedioPago' => 1180]],
+        'params' => ['totalOtrosCargos' => 50],
+    ]);
+
+    expect($errores)->toBe([])
+        ->and($xml)->toContain('<TipoDocumentoOC>05</TipoDocumentoOC>')
+        ->toContain('<MontoCargo>50</MontoCargo>')
+        ->toContain('<TotalOtrosCargos>50</TotalOtrosCargos>');
+});
+
 /*
  * FEC (#72): la empresa COMPRA, así que va como Receptor y es quien firma
  * (Anexos 4.4, pág. 60); el Emisor es el proveedor. Con los papeles al

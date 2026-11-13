@@ -4607,11 +4607,14 @@ function genXMLFee()
         error_log("RECEPTOROTRASSENASEXTRANJEROMAXSIZE: " . RECEPTOROTRASSENASMAXSIZE . " is greater than receptorOtrasSenas: " . $receptorOtrasSenasExtranjero);
     }
 
-    if (isset($otrosCargos) && !empty($otrosCargos)) {
-        if (count($otrosCargos->otrosCargos) > 15) {
-            error_log("otrosCargos: " . count($otrosCargos->otrosCargos) . " is greater than 15");
-            //Delimita el array a solo 4 elementos
-            $otrosCargos->otrosCargos = array_slice($otrosCargos->otrosCargos, 0, 15);
+    // DESVÍO DEL VERBATIM (#74): el original contaba $otrosCargos->otrosCargos,
+    // pero $otrosCargos es la lista misma (json_decode de un array) y count(null)
+    // lanza TypeError en PHP 8. Igual que en los demás generadores.
+    if (isset($otrosCargos) && _ne74($otrosCargos)) {
+        if (count($otrosCargos) > 15) {
+            error_log("otrosCargos: " . count($otrosCargos) . " is greater than 15");
+            //Delimita el array a solo 15 elementos
+            $otrosCargos = array_slice($otrosCargos, 0, 15);
         }
     }
 
